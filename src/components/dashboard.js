@@ -180,7 +180,7 @@ export async function render() {
               <p class="eyebrow">From your doctor</p>
               <h3>${latestVisit?.recommendations || 'No new recommendations.'}</h3>
               <p>${latestVisit?.doctorNotes || ''}</p>
-              <div class="doctor-signoff"><span>AM</span><div><strong>Dr. Arjun Mehta</strong><small>Internal Medicine</small></div></div>
+              <div class="doctor-signoff"><span>DR</span><div><strong>${latestVisit?.doctorName || 'Your doctor'}</strong><small>Healthcare professional</small></div></div>
             </article>
           </aside>
         </section>
