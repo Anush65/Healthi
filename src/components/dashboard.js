@@ -65,7 +65,9 @@ export async function render() {
             <h1>Good ${new Date().getHours() < 12 ? 'morning' : 'afternoon'}, ${firstName}.</h1>
             <p class="muted">Here is your health at a glance.</p>
           </div>
-          <a class="icon-button" href="#/settings" aria-label="Open settings">${icon('settings')}</a>
+          <div style="background: var(--slate-200); padding: 8px 16px; border-radius: 8px; font-weight: 600; letter-spacing: 1px; color: var(--slate-900);">
+            Code: ${profile?.patientCode || 'N/A'}
+          </div>
         </header>
 
         <section class="hero-grid">
