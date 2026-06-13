@@ -6,7 +6,16 @@ export async function getProfile() {
   if (!user) return null;
   const docSnap = await getDoc(doc(db, "users", user.uid));
   if (docSnap.exists()) {
-    return docSnap.data();
+    const data = docSnap.data();
+    
+    // Patch old patients who don't have a patientCode
+    if (data.role === 'patient' && !data.patientCode) {
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      await setDoc(doc(db, "users", user.uid), { patientCode: code }, { merge: true });
+      data.patientCode = code;
+    }
+    
+    return data;
   }
   return null;
 }
