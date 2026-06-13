@@ -501,6 +501,26 @@ export async function seedCurrentPatient() {
     return d.toISOString();
   };
 
+  // Find the required doctor by email
+  const doctorQuery = query(collection(db, 'users'), where('email', '==', 'aadhyanth.k2024@vitstudent.ac.in'), where('role', '==', 'doctor'));
+  const doctorSnap = await getDocs(doctorQuery);
+  let doctorId = 'demo-doctor';
+  let doctorName = 'Dr. Arjun Mehta';
+  
+  if (!doctorSnap.empty) {
+    const docData = doctorSnap.docs[0];
+    doctorId = docData.id;
+    doctorName = docData.data().name || doctorName;
+
+    // Link the patient to this doctor
+    await setDoc(doc(db, 'doctorAssignments', `${doctorId}_${user.uid}`), {
+      doctorId,
+      patientId: user.uid,
+      patientCode: profile.patientCode || 'HLT729',
+      createdAt: serverTimestamp()
+    });
+  }
+
   const logs = [
     { date: daysAgo(35, 20), raw_text: 'Feeling okay, but had a slight headache in the evening. Didn\'t sleep very well.', parsed_data: { symptoms: ['headache'], sleep: 'poor', severity: 'low', summary: 'Evening headache and poor sleep.' } },
     { date: daysAgo(32, 9), raw_text: 'Headaches are getting more frequent. Blood pressure seems a bit high today.', parsed_data: { symptoms: ['headache'], sleep: 'fair', severity: 'medium', summary: 'Frequent headaches and high BP.' } },
@@ -532,8 +552,32 @@ export async function seedCurrentPatient() {
     { condition: 'diabetes', date: daysAgo(1), metrics: { blood_sugar: 105 } }
   ];
 
+  const appointments = [
+    {
+      doctorId,
+      doctorName,
+      scheduledDate: daysAgo(-4, 10),
+      status: 'scheduled',
+      reason: 'Monthly Review',
+      notes: 'Check blood pressure progress after starting Amlodipine.'
+    }
+  ];
+
+  const visits = [
+    {
+      doctorId,
+      date: daysAgo(25, 14),
+      diagnosis: 'Hypertension Spikes',
+      prescriptions: [{ medicine: 'Amlodipine', dosage: '5mg', frequency: 'Daily tracking', duration: 'Ongoing' }],
+      testsOrdered: [],
+      recommendations: 'Start Amlodipine daily. Begin light 15-minute walks once dizziness subsides.',
+      doctorNotes: 'Patient reporting frequent headaches and dizziness. BP elevated.'
+    }
+  ];
+
   const promises = [];
 
+  // 1. Health Logs
   for (const log of logs) {
     promises.push(addDoc(collection(db, 'healthEntries'), {
       ...log,
@@ -542,6 +586,7 @@ export async function seedCurrentPatient() {
     }));
   }
 
+  // 2. Metric Logs
   for (const metric of metrics) {
     if (profile.conditions?.includes(metric.condition)) {
       promises.push(addDoc(collection(db, 'metricLogs'), {
@@ -550,6 +595,44 @@ export async function seedCurrentPatient() {
         createdAt: serverTimestamp()
       }));
     }
+  }
+
+  // 3. Appointments & Visits
+  for (const apt of appointments) {
+    promises.push(addDoc(collection(db, 'appointments'), {
+      ...apt,
+      patientId: user.uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }));
+  }
+
+  for (const visit of visits) {
+    promises.push(addDoc(collection(db, 'doctorVisits'), {
+      ...visit,
+      patientId: user.uid,
+      createdAt: serverTimestamp()
+    }));
+  }
+
+  // 4. Update Profile with Medicines
+  promises.push(setDoc(doc(db, 'users', user.uid), {
+    medicines: [
+      { name: 'Amlodipine', instructions: '5mg', timing: '1-0-0' }
+    ]
+  }, { merge: true }));
+
+  // 5. Seed Medication checklist logs (Past 24 days since visit)
+  // Generating logs for they took their meds every day
+  for (let i = 24; i >= 0; i--) {
+    const dStr = daysAgo(i).substring(0, 10); // get YYYY-MM-DD from ISO
+    const docId = `${user.uid}_${dStr}_Amlodipine`;
+    promises.push(setDoc(doc(db, 'medicationLogs', docId), {
+      patientId: user.uid,
+      medicineName: 'Amlodipine',
+      dateStr: dStr,
+      createdAt: serverTimestamp()
+    }));
   }
 
   await Promise.all(promises);

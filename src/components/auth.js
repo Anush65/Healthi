@@ -58,7 +58,7 @@ export async function render() {
             <label class="role-choice"><input type="radio" name="role" value="doctor"><span><strong>Doctor</strong><small>Support my patients</small></span></label>
             <label style="display:flex; align-items:center; gap:12px; margin-top:16px; cursor:pointer; background: var(--blue-50); padding: 16px; border-radius: var(--radius-button); border: 1px solid var(--blue-100);">
               <input type="checkbox" name="isDemo" value="true" style="width:20px; height:20px; cursor:pointer;">
-              <span style="font-size: 15px; font-weight: 500; color: var(--blue-800);">Pre-load Demo Data (Hackathon Judges)</span>
+              <span style="font-size: 15px; font-weight: 500; color: var(--blue-800);">Pre-load Demo Data (Hackathon Judges - Patients only)</span>
             </label>
             <button class="btn btn-primary btn-block" type="submit" style="margin-top:16px;">Complete setup</button>
           </form>` : `
