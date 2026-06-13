@@ -142,6 +142,9 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .tag-row span { padding: 5px 9px; border-radius: 999px; background: var(--cream); color: var(--muted); font-size: .72rem; }
 .prompt-chip { border: 0; border-radius: 999px; padding: 7px 11px; background: var(--cream); color: var(--green); font-size: .78rem; font-weight: 700; }
 .prompt-chip:hover { background: var(--mint); }
+.stat-btn { padding: 12px 20px; border-radius: 14px; font-size: 1.1rem; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+.stat-btn:hover { background: var(--sage); border-color: var(--mint-strong); }
+.stat-btn.active { background: var(--green); color: white; border-color: var(--green-dark); }
 .insight-card { padding: 27px; background: var(--green); color: white; border-radius: 22px; }
 .insight-icon { display: grid; width: 44px; height: 44px; place-items: center; margin-bottom: 30px; border-radius: 13px; background: rgba(255,255,255,.13); }
 .insight-card h2 { margin: 8px 0 12px; font-size: 1.4rem; }

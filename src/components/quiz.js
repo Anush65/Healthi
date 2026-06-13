@@ -97,44 +97,35 @@ export function init() {
       parent.querySelectorAll('.stat-btn').forEach(btn => {
         if (btn !== button) {
           btn.classList.remove('active');
-          btn.style.background = 'var(--slate-200)';
-          btn.style.color = 'var(--text-primary)';
         }
       });
       
       button.classList.toggle('active');
-      if (button.classList.contains('active')) {
-        button.style.background = 'var(--blue-600)';
-        button.style.color = '#fff';
-      } else {
-        button.style.background = 'var(--slate-200)';
-        button.style.color = 'var(--text-primary)';
-      }
     });
   });
 
   submit.addEventListener('click', async () => {
     let text = input.value.trim();
     
-    // Append active stats
-    const activeStats = [];
+    // Gather active stats
+    const activeStats = {};
     document.querySelectorAll('.stat-btn.active').forEach(btn => {
-      activeStats.push(`${btn.dataset.type}: ${btn.dataset.val}`);
+      activeStats[btn.dataset.type] = btn.dataset.val;
     });
     
-    if (activeStats.length > 0) {
-      text += (text ? '. ' : '') + 'Quick Stats - ' + activeStats.join(', ') + '.';
-    }
-
-    if (!text) {
-      showToast('Please tell us how you are feeling first.');
+    if (!text && Object.keys(activeStats).length === 0) {
+      showToast('Please tell us how you are feeling or select a quick stat.');
       input.focus();
       return;
     }
+
     submit.disabled = true;
     loading.style.display = 'block';
     try {
-      await addLog({ raw_text: text, parsed_data: await parseWellnessLog(text) });
+      const parsed = await parseWellnessLog(text, activeStats);
+      const finalRawText = text || "Quick Stats Update";
+      parsed.quickStats = activeStats;
+      await addLog({ raw_text: finalRawText, parsed_data: parsed });
       showToast('Your health ledger is up to date.');
       window.location.hash = '#/dashboard';
     } catch (error) {

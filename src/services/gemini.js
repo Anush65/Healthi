@@ -34,37 +34,49 @@ async function generateWithFallback(prompt) {
  * @param {string} text - User's raw input.
  * @returns {Promise<Object>} - The parsed JSON data.
  */
-export async function parseWellnessLog(text) {
+export async function parseWellnessLog(text, quickStats = {}) {
+  const hasText = text && text.trim().length > 0;
+  const hasStats = Object.keys(quickStats).length > 0;
+  
   if (!apiKey) {
-    const lower = text.toLowerCase();
+    const lower = (text || '').toLowerCase();
     const knownSymptoms = ['headache', 'fever', 'dizziness', 'nausea', 'cough', 'fatigue', 'pain', 'ache'];
     const symptoms = knownSymptoms.filter((symptom) => lower.includes(symptom));
     const sleepMatch = lower.match(/(\d+)\s*(hours?|hrs?)/);
     const severity = /(severe|very bad|intense|unbearable)/.test(lower)
       ? 'high'
       : /(mild|little|brief|slight)/.test(lower) ? 'low' : symptoms.length ? 'medium' : 'low';
+    
+    let summary = text && text.length > 86 ? `${text.slice(0, 83)}...` : text || 'Quick Stats Update';
+    
     return {
       symptoms,
-      sleep: sleepMatch ? `${sleepMatch[1]} hours mentioned` : lower.includes('sleep') ? 'Sleep mentioned' : 'Not mentioned',
-      hydration: lower.includes('water') || lower.includes('hydration') ? 'Mentioned' : 'Not mentioned',
-      diet_notes: lower.includes('breakfast') ? 'Breakfast mentioned' : 'Not mentioned',
+      sleep: quickStats['Sleep Quality'] || (sleepMatch ? `${sleepMatch[1]} hours mentioned` : lower.includes('sleep') ? 'Sleep mentioned' : 'Not mentioned'),
+      hydration: quickStats['Hydration'] || (lower.includes('water') || lower.includes('hydration') ? 'Mentioned' : 'Not mentioned'),
+      diet_notes: quickStats['Appetite'] ? `Appetite: ${quickStats['Appetite']}` : lower.includes('breakfast') ? 'Breakfast mentioned' : 'Not mentioned',
       severity,
-      summary: text.length > 86 ? `${text.slice(0, 83)}...` : text
+      summary,
+      quickStats
     };
   }
 
+  const quickStatsStr = hasStats ? JSON.stringify(quickStats) : "None provided";
+  const userTextStr = hasText ? `"${text}"` : "No text provided.";
+
   const prompt = `
     You are a medical parser for a wellness app. 
-    Analyze the following user input and return a JSON object with strictly these keys:
+    Analyze the following user input AND their selected quick stats.
+    Return a JSON object with strictly these keys:
     - "symptoms": an array of strings (e.g., ["joint pain", "headache"]). Empty array if none.
-    - "sleep": string description of sleep quality (e.g., "poor", "good", "none mentioned").
+    - "sleep": string description of sleep quality (e.g., "poor", "good", "none mentioned"). Incorporate the quick stats if relevant.
     - "diet_notes": string description of diet/food mentioned.
     - "severity": string ("low", "medium", "high") based on the language used.
-    - "summary": A short 1-sentence summary of the entry.
+    - "summary": A short 1-sentence summary of the entry combining the context of their text and quick stats.
 
     IMPORTANT: Return ONLY valid JSON, without markdown formatting or code blocks.
     
-    User Input: "${text}"
+    User Input: ${userTextStr}
+    Quick Stats: ${quickStatsStr}
   `;
 
   try {
