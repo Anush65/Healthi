@@ -6,13 +6,31 @@ import { renderLayout, icon } from '../utils/layout.js';
 
 
 
-function renderDoctorCare(visits, appointments, doctorName, doctorInitials) {
+function renderDoctorCare(visits, appointments, doctorName, doctorInitials, medicines, todayMedLogs) {
   const sortedVisits = [...visits].sort((a, b) => new Date(b.date) - new Date(a.date));
   const sortedAppointments = [...appointments].sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
 
   return `
     <section class="section-block">
       <div class="section-heading"><div><p class="eyebrow">Shared by your doctor</p><h2>Care updates</h2></div></div>
+
+      ${medicines?.length ? `
+      <div class="card" style="padding: 12px 24px; margin-bottom: 24px;">
+        <h3 style="margin-bottom: 8px;">Daily Medicine Checklist</h3>
+        ${medicines.map((med, idx) => {
+          const isChecked = todayMedLogs.some(l => l.medicineName === med.name) ? 'checked' : '';
+          return `
+            <div style="display: flex; align-items: center; gap: 16px; padding: 14px 0; ${idx < medicines.length - 1 ? 'border-bottom: 1px solid var(--line);' : ''}">
+              <input type="checkbox" class="med-checkbox" data-med="${med.name}" id="med-${med.id}" ${isChecked} style="width: 28px; height: 28px; padding: 0; margin: 0; cursor: pointer; accent-color: var(--green);">
+              <label for="med-${med.id}" style="cursor: pointer; flex: 1; margin: 0;">
+                <strong style="font-size: 1.15rem; display: block;">${med.name}</strong>
+                <span class="muted" style="font-size: 0.9rem;">${med.instructions || 'Daily tracking'} ${med.timing ? '· ' + med.timing : ''}</span>
+              </label>
+            </div>
+          `;
+        }).join('')}
+      </div>` : ''}
+
       <div class="clinical-grid">
         <article class="doctor-note card">
           <p class="eyebrow">From your doctor</p>
@@ -95,24 +113,6 @@ export async function render() {
           </a>
         </section>
 
-        ${profile?.medicines?.length ? `
-        <section class="section-block">
-          <div class="section-heading"><div><p class="eyebrow">Daily checklist</p><h2>Medicines</h2></div></div>
-          <div class="card" style="padding: 12px 24px;">
-            ${profile.medicines.map((med, idx) => {
-              const isChecked = todayMedLogs.some(l => l.medicineName === med.name) ? 'checked' : '';
-              return `
-                <div style="display: flex; align-items: center; gap: 16px; padding: 14px 0; ${idx < profile.medicines.length - 1 ? 'border-bottom: 1px solid var(--line);' : ''}">
-                  <input type="checkbox" class="med-checkbox" data-med="${med.name}" id="med-${med.id}" ${isChecked} style="width: 28px; height: 28px; padding: 0; margin: 0; cursor: pointer; accent-color: var(--green);">
-                  <label for="med-${med.id}" style="cursor: pointer; flex: 1; margin: 0;">
-                    <strong style="font-size: 1.15rem; display: block;">${med.name}</strong>
-                    <span class="muted" style="font-size: 0.9rem;">${med.instructions || 'Daily tracking'}</span>
-                  </label>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </section>` : ''}
 
     <section class="section-block">
       <div class="section-heading"><div><p class="eyebrow">Today</p><h2>Your care plan</h2></div></div>
@@ -149,7 +149,7 @@ export async function render() {
 
         </section>
 
-        ${renderDoctorCare(visits, appointments, doctorName, doctorInitials)}
+        ${renderDoctorCare(visits, appointments, doctorName, doctorInitials, profile?.medicines, todayMedLogs)}
 
         <section class="content-grid">
           <div>

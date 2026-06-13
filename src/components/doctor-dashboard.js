@@ -149,7 +149,8 @@ async function renderPatient(patientId) {
                 ${(profile.medicines || []).map(med => `
                   <div class="med-item" style="display:flex; gap:8px;">
                     <input name="medicine_name[]" value="${med.name}" placeholder="Medicine name" style="flex:2" required>
-                    <input name="medicine_dosage[]" value="${med.instructions || ''}" placeholder="Dosage/Instructions" style="flex:1">
+                    <input name="medicine_dosage[]" value="${med.instructions || ''}" placeholder="Dosage" style="flex:1">
+                    <input name="medicine_timing[]" value="${med.timing || ''}" placeholder="Timing (e.g. 1-0-1)" style="flex:1">
                     <button type="button" class="btn btn-secondary" onclick="this.parentElement.remove()" style="min-height:auto; padding: 12px; color: var(--danger);">Remove</button>
                   </div>
                 `).join('')}
@@ -336,7 +337,8 @@ function bindClinicalForm() {
     div.style.gap = '8px';
     div.innerHTML = `
       <input name="medicine_name[]" placeholder="Medicine name" style="flex:2" required>
-      <input name="medicine_dosage[]" placeholder="Dosage/Instructions" style="flex:1">
+      <input name="medicine_dosage[]" placeholder="Dosage" style="flex:1">
+      <input name="medicine_timing[]" placeholder="Timing (e.g. 1-0-1)" style="flex:1">
       <button type="button" class="btn btn-secondary" onclick="this.parentElement.remove()" style="min-height:auto; padding: 12px; color: var(--danger);">Remove</button>
     `;
     list.appendChild(div);
@@ -368,11 +370,13 @@ function bindClinicalForm() {
 
       const medNames = formData.getAll('medicine_name[]');
       const medDosages = formData.getAll('medicine_dosage[]');
+      const medTimings = formData.getAll('medicine_timing[]');
       
       const medicines = medNames.map((name, i) => ({
         id: name.replace(/\\s+/g, '').toLowerCase() + Date.now().toString().slice(-4),
         name,
-        instructions: medDosages[i] || ''
+        instructions: medDosages[i] || '',
+        timing: medTimings[i] || ''
       })).filter(m => m.name.trim());
       
       // Update patient profile with new medicines
