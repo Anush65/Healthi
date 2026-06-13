@@ -45,6 +45,60 @@ export const ConditionRegistry = {
         }
       }
     ]
+  },
+  temperature: {
+    id: 'temperature',
+    name: 'Body Temperature',
+    description: 'Track body temperature.',
+    metrics: [
+      {
+        id: 'temperature',
+        label: 'Temperature (°F)',
+        type: 'number',
+        placeholder: 'e.g., 98.6',
+        chartConfig: {
+          label: 'Temperature Trend',
+          color: '#ef4444', // red-500
+          bgColor: 'rgba(239, 68, 68, 0.1)',
+        }
+      }
+    ]
+  },
+  oxygen_level: {
+    id: 'oxygen_level',
+    name: 'Oxygen Level',
+    description: 'Track blood oxygen saturation.',
+    metrics: [
+      {
+        id: 'spo2',
+        label: 'SpO2 (%)',
+        type: 'number',
+        placeholder: 'e.g., 98',
+        chartConfig: {
+          label: 'Oxygen Saturation',
+          color: '#8b5cf6', // violet-500
+          bgColor: 'rgba(139, 92, 246, 0.1)',
+        }
+      }
+    ]
+  },
+  body_weight: {
+    id: 'body_weight',
+    name: 'Body Weight',
+    description: 'Track your body weight.',
+    metrics: [
+      {
+        id: 'weight',
+        label: 'Weight (lbs)',
+        type: 'number',
+        placeholder: 'e.g., 150',
+        chartConfig: {
+          label: 'Weight Trend',
+          color: '#10b981', // emerald-500
+          bgColor: 'rgba(16, 185, 129, 0.1)',
+        }
+      }
+    ]
   }
 };
 

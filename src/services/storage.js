@@ -39,7 +39,7 @@ function seedStore() {
         age: 68,
         email: 'maya@example.com',
         patientCode: 'HLT729',
-        conditions: ['hypertension', 'diabetes'],
+        conditions: ['hypertension', 'diabetes', 'temperature', 'oxygen_level', 'body_weight'],
         medications: ['Metformin 500mg', 'Amlodipine 5mg'],
         onboardingComplete: true
       },
@@ -267,7 +267,7 @@ export async function addMetricLog(metricData) {
     store.metrics.push({
       ...metricData,
       id: crypto.randomUUID(),
-      patientId: 'demo-patient',
+      patientId: metricData.patientId || 'demo-patient',
       date: new Date().toISOString()
     });
     writeStore(store);
@@ -277,7 +277,7 @@ export async function addMetricLog(metricData) {
   if (!user) throw new Error('Not authenticated');
   await addDoc(collection(db, 'metricLogs'), {
     ...metricData,
-    patientId: user.uid,
+    patientId: metricData.patientId || user.uid,
     date: new Date().toISOString(),
     createdAt: serverTimestamp()
   });

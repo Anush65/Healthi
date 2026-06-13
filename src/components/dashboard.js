@@ -22,46 +22,22 @@ function nav() {
   </nav>`;
 }
 
-function renderReadingForms(profile) {
-  const conditions = (profile?.conditions || [])
-    .map((condition) => getConditionConfig(condition))
-    .filter(Boolean);
 
-  if (!conditions.length) {
-    return '<p class="muted">Add diabetes or hypertension in onboarding/settings to log structured readings.</p>';
-  }
 
-  return conditions.map((condition) => `
-    <form class="reading-form form-grid" data-condition="${condition.id}" style="margin-top:14px">
-      <div class="field full"><strong>${condition.name} reading</strong><p class="muted">${condition.description}</p></div>
-      ${condition.metrics.map((metric) => `
-        <div class="field">
-          <label for="${condition.id}-${metric.id}">${metric.label}</label>
-          <input id="${condition.id}-${metric.id}" name="${metric.id}" type="${metric.type}" min="0" placeholder="${metric.placeholder}" required>
-        </div>
-      `).join('')}
-      <div class="field"><button class="btn btn-primary" type="submit">Save reading</button></div>
-    </form>
-  `).join('');
-}
-
-function renderDoctorCare(visits, appointments) {
+function renderDoctorCare(visits, appointments, doctorName, doctorInitials) {
   const sortedVisits = [...visits].sort((a, b) => new Date(b.date) - new Date(a.date));
   const sortedAppointments = [...appointments].sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
 
   return `
     <section class="section-block">
       <div class="section-heading"><div><p class="eyebrow">Shared by your doctor</p><h2>Care updates</h2></div></div>
-      <div class="care-grid">
+      <div class="clinical-grid">
         <article class="doctor-note card">
-          <p class="eyebrow">Latest recommendation</p>
+          <p class="eyebrow">From your doctor</p>
           ${sortedVisits[0] ? `
             <h3>${sortedVisits[0].recommendations || sortedVisits[0].diagnosis || 'Follow-up review'}</h3>
             <p>${sortedVisits[0].doctorNotes || sortedVisits[0].diagnosis || ''}</p>
-            <div class="tag-row">
-              ${(sortedVisits[0].prescriptions || []).map((item) => `<span>${item.medicine} ${item.dosage || ''}</span>`).join('')}
-              ${(sortedVisits[0].testsOrdered || []).map((item) => `<span>Test: ${item.name}</span>`).join('')}
-            </div>
+            <div class="doctor-signoff"><span>${doctorInitials}</span><div><strong>${doctorName}</strong><small>Healthcare Provider</small></div></div>
           ` : '<p class="muted">No doctor recommendations yet.</p>'}
         </article>
         <article class="doctor-note card">
@@ -88,7 +64,12 @@ export async function render() {
   const recentLogs = logs.sort((a, b) => new Date(b.date) - new Date(a.date));
   const latestBp = metrics.filter((item) => item.condition === 'hypertension').at(-1);
   const latestSugar = metrics.filter((item) => item.condition === 'diabetes').at(-1);
+  const latestTemp = metrics.filter((item) => item.condition === 'temperature').at(-1);
+  const latestOxygen = metrics.filter((item) => item.condition === 'oxygen_level').at(-1);
+  const latestWeight = metrics.filter((item) => item.condition === 'body_weight').at(-1);
   const firstName = profile?.name?.split(' ')[0] || 'there';
+  const doctorName = appointments.find(a => a.doctorName)?.doctorName || 'Your doctor';
+  const doctorInitials = doctorName.split(' ').filter(w => w !== 'Dr.').map(word => word[0]).join('').slice(0, 2).toUpperCase() || 'MD';
 
   return `
     <div class="app-layout">
@@ -108,13 +89,12 @@ export async function render() {
         </header>
 
         <section class="hero-grid">
-          <article class="wellness-card">
-            <div>
-              <span class="status-pill"><i></i> Looking steady</span>
-              <h2>Your readings are moving in the right direction.</h2>
-              <p>Keep up your medication routine and regular morning walks.</p>
-            </div>
-            <div class="wellness-score"><strong>82</strong><span>wellness<br>score</span></div>
+          <article class="insight-card">
+            <div class="insight-icon">${icon('spark')}</div>
+            <p class="eyebrow light">Healthi insight</p>
+            <h2>Poor sleep may be linked to your headaches.</h2>
+            <p>You mentioned a headache on two days after sleeping less than six hours. Try winding down 30 minutes earlier tonight.</p>
+            <a href="#/insights">See all insights →</a>
           </article>
           <a class="quick-log-card" href="#/log">
             <span class="quick-log-icon">${icon('plus')}</span>
@@ -136,6 +116,21 @@ export async function render() {
               <strong>${latestSugar?.metrics.blood_sugar || '--'}</strong>
               <span>mg/dL</span><small class="trend">In your usual range</small>
             </article>
+            <article class="metric-card">
+              <div class="metric-label"><span class="metric-dot" style="background-color: #10b981"></span>Body Weight</div>
+              <strong>${latestWeight?.metrics.weight || '--'}</strong>
+              <span>lbs</span><small class="trend">Steady</small>
+            </article>
+            <article class="metric-card">
+              <div class="metric-label"><span class="metric-dot" style="background-color: #8b5cf6"></span>Oxygen Level</div>
+              <strong>${latestOxygen?.metrics.spo2 || '--'}</strong>
+              <span>%</span><small class="trend">Normal range</small>
+            </article>
+            <article class="metric-card">
+              <div class="metric-label"><span class="metric-dot" style="background-color: #ef4444"></span>Temperature</div>
+              <strong>${latestTemp?.metrics.temperature || '--'}</strong>
+              <span>°F</span><small class="trend">Normal range</small>
+            </article>
             <article class="appointment-card">
               ${nextAppointment ? `
                 <div class="appointment-date"><strong>${new Date(nextAppointment.scheduledDate).getDate()}</strong><span>${new Date(nextAppointment.scheduledDate).toLocaleDateString(undefined, { month: 'short' })}</span></div>
@@ -144,13 +139,10 @@ export async function render() {
               ` : '<p class="muted">No upcoming appointments.</p>'}
             </article>
           </div>
-          <div class="action-form">
-            <div class="section-heading"><div><p class="eyebrow">Readings</p><h2>Add a reading</h2></div></div>
-            ${renderReadingForms(profile)}
-          </div>
+
         </section>
 
-        ${renderDoctorCare(visits, appointments)}
+        ${renderDoctorCare(visits, appointments, doctorName, doctorInitials)}
 
         <section class="content-grid">
           <div>
@@ -168,21 +160,7 @@ export async function render() {
                 </article>`).join('')}
             </div>
           </div>
-          <aside>
-            <article class="insight-card">
-              <div class="insight-icon">${icon('spark')}</div>
-              <p class="eyebrow light">Healthi insight</p>
-              <h2>Poor sleep may be linked to your headaches.</h2>
-              <p>You mentioned a headache on two days after sleeping less than six hours. Try winding down 30 minutes earlier tonight.</p>
-              <a href="#/insights">See all insights →</a>
-            </article>
-            <article class="doctor-note card">
-              <p class="eyebrow">From your doctor</p>
-              <h3>${latestVisit?.recommendations || 'No new recommendations.'}</h3>
-              <p>${latestVisit?.doctorNotes || ''}</p>
-              <div class="doctor-signoff"><span>AM</span><div><strong>Dr. Arjun Mehta</strong><small>Internal Medicine</small></div></div>
-            </article>
-          </aside>
+
         </section>
       </main>
       ${nav()}
@@ -190,17 +168,7 @@ export async function render() {
 }
 
 export function init() {
-  document.querySelectorAll('.reading-form').forEach((form) => {
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const metrics = Object.fromEntries(
-        Array.from(new FormData(form).entries()).map(([key, value]) => [key, Number(value)])
-      );
-      await addMetricLog({ condition: form.dataset.condition, metrics });
-      showToast('Reading saved.');
-      window.dispatchEvent(new Event('hashchange'));
-    });
-  });
+
 
   document.getElementById('reschedule-btn')?.addEventListener('click', async (event) => {
     const date = new Date();

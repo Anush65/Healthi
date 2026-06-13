@@ -73,9 +73,11 @@ service cloud.firestore {
     }
 
     match /metricLogs/{entryId} {
-      allow create: if isPatient() && request.resource.data.patientId == request.auth.uid;
+      allow create: if (isPatient() && request.resource.data.patientId == request.auth.uid) ||
+                       (isDoctor() && isAssignedDoctor(request.resource.data.patientId));
       allow read: if canReadPatientData(resource.data.patientId);
-      allow update, delete: if isPatient() && resource.data.patientId == request.auth.uid;
+      allow update, delete: if (isPatient() && resource.data.patientId == request.auth.uid) ||
+                               (isDoctor() && isAssignedDoctor(resource.data.patientId));
     }
 
     match /appointments/{appointmentId} {

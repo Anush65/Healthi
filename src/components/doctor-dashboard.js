@@ -9,8 +9,10 @@ import {
   getPatientProfile,
   getProfile,
   getVisits,
-  linkPatientToDoctor
+  linkPatientToDoctor,
+  addMetricLog
 } from '../services/storage.js';
+import { getConditionConfig } from '../config/conditions.js';
 import { showToast } from '../utils/toast.js';
 
 let selectedPatientId = 'demo-patient';
@@ -72,6 +74,9 @@ async function renderPatient(patientId) {
   ]);
   const latestBp = metrics.filter((item) => item.condition === 'hypertension').at(-1);
   const latestSugar = metrics.filter((item) => item.condition === 'diabetes').at(-1);
+  const latestTemp = metrics.filter((item) => item.condition === 'temperature').at(-1);
+  const latestOxygen = metrics.filter((item) => item.condition === 'oxygen_level').at(-1);
+  const latestWeight = metrics.filter((item) => item.condition === 'body_weight').at(-1);
   const sortedAppointments = [...appointments].sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
   const nextAppointment = sortedAppointments.filter(a => new Date(a.scheduledDate) >= new Date())[0] || sortedAppointments.at(-1);
 
@@ -102,8 +107,11 @@ async function renderPatient(patientId) {
       <div class="clinical-grid">
         <article class="clinical-card"><p class="eyebrow">Blood pressure</p><h3>${latestBp ? `${latestBp.metrics.systolic}/${latestBp.metrics.diastolic} mmHg` : 'No reading'}</h3><p>Latest recorded reading</p></article>
         <article class="clinical-card"><p class="eyebrow">Blood sugar</p><h3>${latestSugar ? `${latestSugar.metrics.blood_sugar} mg/dL` : 'No reading'}</h3><p>Latest recorded reading</p></article>
-        <article class="clinical-card"><p class="eyebrow">Recent symptom</p><h3>${logs[0]?.parsed_data.summary || 'No recent symptoms'}</h3><p>${logs[0] ? new Date(logs[0].date).toLocaleDateString() : ''}</p></article>
+        <article class="clinical-card"><p class="eyebrow">Temperature</p><h3>${latestTemp ? `${latestTemp.metrics.temperature} °F` : 'No reading'}</h3><p>Latest recorded reading</p></article>
+        <article class="clinical-card"><p class="eyebrow">Oxygen Level</p><h3>${latestOxygen ? `${latestOxygen.metrics.spo2} %` : 'No reading'}</h3><p>Latest recorded reading</p></article>
+        <article class="clinical-card"><p class="eyebrow">Body Weight</p><h3>${latestWeight ? `${latestWeight.metrics.weight} lbs` : 'No reading'}</h3><p>Latest recorded reading</p></article>
         <article class="clinical-card"><p class="eyebrow">Next appointment</p><h3>${nextAppointment ? new Date(nextAppointment.scheduledDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Not scheduled'}</h3><p>${nextAppointment?.reason || 'Create a follow-up below'}</p></article>
+        <article class="clinical-card" style="grid-column: 1 / -1;"><p class="eyebrow">Recent symptom</p><h3>${logs[0]?.parsed_data.summary || 'No recent symptoms'}</h3><p>${logs[0] ? new Date(logs[0].date).toLocaleDateString() : ''}</p></article>
       </div>
       <div class="action-form">
         <p class="eyebrow">Appointments</p>
@@ -119,17 +127,26 @@ async function renderPatient(patientId) {
     </section>
 
     <section data-tab-panel="care-plan" hidden>
-      <div class="action-form">
-        <div class="section-heading"><div><p class="eyebrow">Clinical action</p><h2>Update care plan</h2></div></div>
-        <form id="clinical-form" class="form-grid">
-          <div class="field"><label for="diagnosis">Assessment / diagnosis</label><input id="diagnosis" name="diagnosis" placeholder="e.g. Blood pressure improving"></div>
-          <div class="field"><label for="medicine">Medicine</label><input id="medicine" name="medicine" placeholder="e.g. Amlodipine 5mg"></div>
-          <div class="field"><label for="test">Test or procedure</label><input id="test" name="test" placeholder="e.g. HbA1c"></div>
-          <div class="field"><label for="appointment">Next appointment</label><input id="appointment" name="appointment" type="datetime-local"></div>
-          <div class="field full"><label for="recommendation">Recommendation for patient</label><textarea id="recommendation" name="recommendation" rows="3" placeholder="Write a clear next step for the patient"></textarea></div>
-          <div class="field full"><button class="btn btn-primary" type="submit">Save care plan</button></div>
-        </form>
-      </div>
+      <form id="clinical-form">
+        <div class="action-form">
+          <div class="section-heading"><div><p class="eyebrow">Readings</p><h2>Add a reading</h2></div></div>
+          <div class="form-grid">
+            ${renderReadingForms(profile)}
+          </div>
+        </div>
+
+        <div class="action-form">
+          <div class="section-heading"><div><p class="eyebrow">Clinical action</p><h2>Update care plan</h2></div></div>
+          <div class="form-grid">
+            <div class="field"><label for="diagnosis">Assessment / diagnosis</label><input id="diagnosis" name="diagnosis" placeholder="e.g. Blood pressure improving"></div>
+            <div class="field"><label for="medicine">Medicine</label><input id="medicine" name="medicine" placeholder="e.g. Amlodipine 5mg"></div>
+            <div class="field"><label for="test">Test or procedure</label><input id="test" name="test" placeholder="e.g. HbA1c"></div>
+            <div class="field"><label for="appointment">Next appointment</label><input id="appointment" name="appointment" type="datetime-local"></div>
+            <div class="field full"><label for="recommendation">Recommendation for patient</label><textarea id="recommendation" name="recommendation" rows="3" placeholder="Write a clear next step for the patient"></textarea></div>
+            <div class="field full"><button class="btn btn-primary" type="submit">Save care plan & readings</button></div>
+          </div>
+        </div>
+      </form>
 
       <div class="action-form">
         <p class="eyebrow">Visit history</p>
@@ -140,6 +157,26 @@ async function renderPatient(patientId) {
         ${renderAppointmentList(appointments)}
       </div>
     </section>`;
+}
+
+function renderReadingForms(profile) {
+  const requiredConditions = ['hypertension', 'diabetes', 'temperature', 'oxygen_level', 'body_weight'];
+  const conditions = requiredConditions
+    .map((condition) => getConditionConfig(condition))
+    .filter(Boolean);
+
+  if (!conditions.length) {
+    return '<p class="muted">Patient has no conditions configured for structured readings.</p>';
+  }
+
+  return conditions.flatMap((condition) => 
+    condition.metrics.map((metric) => `
+      <div class="field">
+        <label for="${condition.id}-${metric.id}">${metric.label}</label>
+        <input id="${condition.id}-${metric.id}" name="metric_${condition.id}_${metric.id}" type="${metric.type}" min="0" placeholder="${metric.placeholder}">
+      </div>
+    `)
+  ).join('');
 }
 
 function renderAppointmentList(appointments) {
@@ -236,6 +273,8 @@ function bindPatientDetail() {
   bindClinicalForm();
 }
 
+
+
 function bindPatientTabs() {
   const detail = document.getElementById('patient-detail');
   detail?.querySelectorAll('[data-tab]').forEach((button) => {
@@ -256,31 +295,55 @@ function bindPatientTabs() {
 function bindClinicalForm() {
   document.getElementById('clinical-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const data = Object.fromEntries(new FormData(event.currentTarget));
-    const prescriptions = data.medicine ? [{ medicine: data.medicine, dosage: '', frequency: '', duration: '' }] : [];
-    const testsOrdered = data.test ? [{ name: data.test, description: '', status: 'pending' }] : [];
+    try {
+      const data = Object.fromEntries(new FormData(event.currentTarget));
 
-    await addVisit({
-      patientId: selectedPatientId,
-      diagnosis: data.diagnosis || 'Follow-up review',
-      prescriptions,
-      testsOrdered,
-      recommendations: data.recommendation || 'Continue the current care plan.',
-      doctorNotes: data.recommendation || ''
-    });
+      const metricGroups = {};
+      for (const key in data) {
+        if (key.startsWith('metric_') && data[key] !== '') {
+          const parts = key.split('_');
+          const metricId = parts.pop();
+          parts.shift(); // remove 'metric'
+          const conditionId = parts.join('_');
+          
+          if (!metricGroups[conditionId]) metricGroups[conditionId] = {};
+          metricGroups[conditionId][metricId] = Number(data[key]);
+        }
+      }
 
-    if (data.appointment) {
-      await addAppointment({
-        patientId: selectedPatientId,
-        scheduledDate: new Date(data.appointment).toISOString(),
-        status: 'scheduled',
-        reason: data.diagnosis || 'Clinical follow-up',
-        notes: data.recommendation || ''
+      const metricPromises = Object.entries(metricGroups).map(([conditionId, metrics]) => {
+        return addMetricLog({ patientId: selectedPatientId, condition: conditionId, metrics });
       });
-    }
+      await Promise.all(metricPromises);
 
-    showToast('Care plan saved and shared with the patient.');
-    document.getElementById('patient-detail').innerHTML = await renderPatient(selectedPatientId);
-    bindPatientDetail();
+      const prescriptions = data.medicine ? [{ medicine: data.medicine, dosage: '', frequency: '', duration: '' }] : [];
+      const testsOrdered = data.test ? [{ name: data.test, description: '', status: 'pending' }] : [];
+
+      await addVisit({
+        patientId: selectedPatientId,
+        diagnosis: data.diagnosis || 'Follow-up review',
+        prescriptions,
+        testsOrdered,
+        recommendations: data.recommendation || 'Continue the current care plan.',
+        doctorNotes: data.recommendation || ''
+      });
+
+      if (data.appointment) {
+        await addAppointment({
+          patientId: selectedPatientId,
+          scheduledDate: new Date(data.appointment).toISOString(),
+          status: 'scheduled',
+          reason: data.diagnosis || 'Clinical follow-up',
+          notes: data.recommendation || ''
+        });
+      }
+
+      showToast('Care plan saved and shared with the patient.');
+      document.getElementById('patient-detail').innerHTML = await renderPatient(selectedPatientId);
+      bindPatientDetail();
+    } catch (error) {
+      console.error('Error saving care plan:', error);
+      showToast('Error saving care plan: ' + error.message);
+    }
   });
 }
