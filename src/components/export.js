@@ -101,20 +101,25 @@ export async function init() {
             <th style="padding: 8px;">Date</th>
             <th style="padding: 8px;">Summary</th>
             <th style="padding: 8px;">Symptoms</th>
-            <th style="padding: 8px;">Sleep</th>
           </tr>
         </thead>
         <tbody>
     `;
     
-    tableHtml += reversed.map(log => `
+    tableHtml += reversed.map(log => {
+      const sleepStr = log.parsed_data?.sleep || '';
+      const hasBadSleep = sleepStr && !sleepStr.match(/good|excellent|normal|well|not mentioned/i);
+      const sym = Array.isArray(log.parsed_data?.symptoms) ? [...log.parsed_data.symptoms] : [];
+      if (hasBadSleep) sym.push(`Sleep: ${sleepStr}`);
+      const symStr = sym.length ? sym.join(', ') : '-';
+      return `
       <tr style="border-bottom: 1px solid var(--slate-200);">
         <td style="padding: 12px 8px; vertical-align: top; white-space: nowrap;">${new Date(log.date).toLocaleDateString()}</td>
         <td style="padding: 12px 8px; vertical-align: top;">${log.parsed_data?.summary || '-'}</td>
-        <td style="padding: 12px 8px; vertical-align: top;">${Array.isArray(log.parsed_data?.symptoms) ? log.parsed_data.symptoms.join(', ') : '-'}</td>
-        <td style="padding: 12px 8px; vertical-align: top;">${log.parsed_data?.sleep || '-'}</td>
+        <td style="padding: 12px 8px; vertical-align: top;">${symStr}</td>
       </tr>
-    `).join('');
+      `;
+    }).join('');
     
     tableHtml += `</tbody></table>`;
     tableContainer.innerHTML = tableHtml;

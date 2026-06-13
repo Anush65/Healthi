@@ -8,3 +8,6 @@
 - [x] people who are logged in as doctors and don't have any patients should be able to delete their account because they may be patients who have selected the wrong option during onboarding
 - [x] doctors should be able to make entries for medicines in a nice lil table and the table should display in the patient's dashboard as a checklist that they can check off every day
 - [x] temperature entry check? i think it doesn't work
+- [x] remove sleep column in chronological log, just merge that with symptoms if sleep is bad
+- [x] selecting from the quick log menu auto-scrolls up and inputs "undefined" into the text box (it still understands correctly but the description keeps saying The user reports poor mood, poor sleep quality, low appetite, low energy, and suboptimal hydration.
+undefinedundefinedundefinedundefinedundefined)

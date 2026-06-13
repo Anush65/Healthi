@@ -25,31 +25,31 @@ export async function render() {
             <p style="font-weight: 500; margin-bottom: 0;">Quick Stats (Optional)</p>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;" class="stat-group">
               <span style="font-size: 0.9rem; color: var(--text-secondary); width: 80px;">Mood</span>
-              <button class="prompt-chip stat-btn" type="button" data-type="Mood" data-val="Great">Great</button>
-              <button class="prompt-chip stat-btn" type="button" data-type="Mood" data-val="Okay">Okay</button>
-              <button class="prompt-chip stat-btn" type="button" data-type="Mood" data-val="Poor">Poor</button>
+              <button class="stat-btn" type="button" data-type="Mood" data-val="Great">Great</button>
+              <button class="stat-btn" type="button" data-type="Mood" data-val="Okay">Okay</button>
+              <button class="stat-btn" type="button" data-type="Mood" data-val="Poor">Poor</button>
             </div>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;" class="stat-group">
               <span style="font-size: 0.9rem; color: var(--text-secondary); width: 80px;">Sleep</span>
-              <button class="prompt-chip stat-btn" type="button" data-type="Sleep Quality" data-val="Good">Good</button>
-              <button class="prompt-chip stat-btn" type="button" data-type="Sleep Quality" data-val="Restless">Restless</button>
-              <button class="prompt-chip stat-btn" type="button" data-type="Sleep Quality" data-val="Poor">Poor</button>
+              <button class="stat-btn" type="button" data-type="Sleep Quality" data-val="Good">Good</button>
+              <button class="stat-btn" type="button" data-type="Sleep Quality" data-val="Restless">Restless</button>
+              <button class="stat-btn" type="button" data-type="Sleep Quality" data-val="Poor">Poor</button>
             </div>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;" class="stat-group">
               <span style="font-size: 0.9rem; color: var(--text-secondary); width: 80px;">Appetite</span>
-              <button class="prompt-chip stat-btn" type="button" data-type="Appetite" data-val="Good">Good</button>
-              <button class="prompt-chip stat-btn" type="button" data-type="Appetite" data-val="Low">Low</button>
+              <button class="stat-btn" type="button" data-type="Appetite" data-val="Good">Good</button>
+              <button class="stat-btn" type="button" data-type="Appetite" data-val="Low">Low</button>
             </div>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;" class="stat-group">
               <span style="font-size: 0.9rem; color: var(--text-secondary); width: 80px;">Hydration</span>
-              <button class="prompt-chip stat-btn" type="button" data-type="Hydration" data-val="Well hydrated">Well hydrated</button>
-              <button class="prompt-chip stat-btn" type="button" data-type="Hydration" data-val="Could be better">Could be better</button>
+              <button class="stat-btn" type="button" data-type="Hydration" data-val="Well hydrated">Well hydrated</button>
+              <button class="stat-btn" type="button" data-type="Hydration" data-val="Could be better">Could be better</button>
             </div>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;" class="stat-group">
               <span style="font-size: 0.9rem; color: var(--text-secondary); width: 80px;">Energy</span>
-              <button class="prompt-chip stat-btn" type="button" data-type="Energy" data-val="High">High</button>
-              <button class="prompt-chip stat-btn" type="button" data-type="Energy" data-val="Normal">Normal</button>
-              <button class="prompt-chip stat-btn" type="button" data-type="Energy" data-val="Low">Low</button>
+              <button class="stat-btn" type="button" data-type="Energy" data-val="High">High</button>
+              <button class="stat-btn" type="button" data-type="Energy" data-val="Normal">Normal</button>
+              <button class="stat-btn" type="button" data-type="Energy" data-val="Low">Low</button>
             </div>
           </div>
           <div style="display:flex;gap:10px;align-items:center;margin-top:24px;flex-wrap:wrap">

@@ -162,7 +162,15 @@ export async function render() {
                     <div class="timeline-meta"><span class="severity ${log.parsed_data.severity}">${log.parsed_data.severity}</span><time>${new Date(log.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></div>
                     <h3>${log.parsed_data.summary}</h3>
                     <p>${log.raw_text}</p>
-                    <div class="tag-row">${(log.parsed_data.symptoms || []).map((item) => `<span>${item}</span>`).join('')}${log.parsed_data.sleep ? `<span>Sleep: ${log.parsed_data.sleep}</span>` : ''}</div>
+                    <div class="tag-row">${
+                      (function() {
+                        const sleepStr = log.parsed_data.sleep || '';
+                        const hasBadSleep = sleepStr && !sleepStr.match(/good|excellent|normal|well|not mentioned/i);
+                        const sym = Array.isArray(log.parsed_data.symptoms) ? [...log.parsed_data.symptoms] : [];
+                        if (hasBadSleep) sym.push(`Sleep: ${sleepStr}`);
+                        return sym.map(item => `<span>${item}</span>`).join('');
+                      })()
+                    }</div>
                   </div>
                 </article>`).join('')}
             </div>
