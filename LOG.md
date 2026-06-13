@@ -5,3 +5,5 @@
 * **Phase 3: Onboarding & Quiz**: Created the basic `onboarding.js` setup flow and the `quiz.js` natural language daily logging interface. Updated `main.js` to correctly redirect non-onboarded users.
 * **Phase 4: Visual Health Ledger**: Implemented `dashboard.js` to chronologically display the user's parsed health logs in a clean UI with severity colors.
 * **Phase 5: Insights & Export**: Created `insights.js` for background pattern recognition from Gemini, and `export.js` leveraging Chart.js for a printable doctor report.
+* **Phase 6: Polish**: Created `settings.js` allowing data reset, polished the dashboard header, and finalized print styles for high-contrast accessibility.
+* **Phase 7: Tests & Docs**: Finalized the `README.md` and added unit tests for `storage.js` using Vitest and `fake-indexeddb`.

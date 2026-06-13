@@ -111,7 +111,7 @@ export async function init() {
     // Reverse for table (newest first)
     const reversed = [...recentLogs].reverse();
     
-    let tableHtml = \`
+    let tableHtml = `
       <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
         <thead>
           <tr style="border-bottom: 2px solid var(--border-color);">
@@ -122,18 +122,18 @@ export async function init() {
           </tr>
         </thead>
         <tbody>
-    \`;
+    `;
     
-    tableHtml += reversed.map(log => \`
+    tableHtml += reversed.map(log => `
       <tr style="border-bottom: 1px solid var(--slate-200);">
-        <td style="padding: 12px 8px; vertical-align: top; white-space: nowrap;">\${new Date(log.date).toLocaleDateString()}</td>
-        <td style="padding: 12px 8px; vertical-align: top;">\${log.parsed_data.summary || '-'}</td>
-        <td style="padding: 12px 8px; vertical-align: top;">\${Array.isArray(log.parsed_data.symptoms) ? log.parsed_data.symptoms.join(', ') : '-'}</td>
-        <td style="padding: 12px 8px; vertical-align: top;">\${log.parsed_data.sleep || '-'}</td>
+        <td style="padding: 12px 8px; vertical-align: top; white-space: nowrap;">${new Date(log.date).toLocaleDateString()}</td>
+        <td style="padding: 12px 8px; vertical-align: top;">${log.parsed_data.summary || '-'}</td>
+        <td style="padding: 12px 8px; vertical-align: top;">${Array.isArray(log.parsed_data.symptoms) ? log.parsed_data.symptoms.join(', ') : '-'}</td>
+        <td style="padding: 12px 8px; vertical-align: top;">${log.parsed_data.sleep || '-'}</td>
       </tr>
-    \`).join('');
+    `).join('');
     
-    tableHtml += \`</tbody></table>\`;
+    tableHtml += `</tbody></table>`;
     tableContainer.innerHTML = tableHtml;
   } else {
     tableContainer.innerHTML = '<p>No entries to display.</p>';
