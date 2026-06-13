@@ -190,22 +190,31 @@ export async function getProfile() {
   }
   const user = auth.currentUser;
   if (!user) return null;
-  const snap = await getDoc(doc(db, 'users', user.uid));
-  if (!snap.exists()) return null;
-  const profile = snap.data();
-  if (profile.role === 'patient' && profile.patientCode) {
-    await setDoc(doc(db, 'patientCodes', profile.patientCode), {
-      patientId: user.uid,
-      createdAt: profile.createdAt || serverTimestamp()
-    }, { merge: true });
+  try {
+    const snap = await getDoc(doc(db, 'users', user.uid));
+    if (!snap.exists()) return null;
+    const profile = snap.data();
+    if (!profile || typeof profile !== 'object') {
+      console.error('Invalid profile data from Firestore:', profile);
+      return null;
+    }
+    if (profile.role === 'patient' && profile.patientCode) {
+      await setDoc(doc(db, 'patientCodes', profile.patientCode), {
+        patientId: user.uid,
+        createdAt: profile.createdAt || serverTimestamp()
+      }, { merge: true });
+    }
+    if (profile.role === 'patient') {
+      await setDoc(doc(db, 'patientUids', user.uid), {
+        patientId: user.uid,
+        createdAt: profile.createdAt || serverTimestamp()
+      }, { merge: true });
+    }
+    return profile;
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    return null;
   }
-  if (profile.role === 'patient') {
-    await setDoc(doc(db, 'patientUids', user.uid), {
-      patientId: user.uid,
-      createdAt: profile.createdAt || serverTimestamp()
-    }, { merge: true });
-  }
-  return profile;
 }
 
 export async function setProfile(data) {
