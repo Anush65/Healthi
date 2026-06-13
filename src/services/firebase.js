@@ -1,6 +1,6 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -11,8 +11,16 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-console.log("DEBUG: Firebase Config from .env:", firebaseConfig);
+export const isDemoMode = import.meta.env.MODE === 'test' ||
+  !firebaseConfig.apiKey ||
+  !firebaseConfig.projectId;
 
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(isDemoMode ? {
+  apiKey: 'demo-api-key',
+  authDomain: 'healthi-demo.firebaseapp.com',
+  projectId: 'healthi-demo',
+  appId: '1:123:web:demo'
+} : firebaseConfig);
+
 export const db = getFirestore(app);
 export const auth = getAuth(app);
