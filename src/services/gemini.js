@@ -80,34 +80,49 @@ export async function parseWellnessLog(text) {
 }
 
 /**
- * Generates predictive insights based on historical logs.
- * @param {Array} historyData - Array of parsed log objects.
- * @returns {Promise<string>} - A 2-sentence pattern recognition insight.
+ * Generates predictive insights based on historical logs, visits, and appointments.
+ * @param {Array} logs - Array of parsed log objects.
+ * @param {Array} visits - Array of doctor visits.
+ * @param {Array} appointments - Array of appointments.
+ * @returns {Promise<Array>} - An array of insight objects.
  */
-export async function getPredictiveInsights(historyData) {
-  if (!historyData || historyData.length === 0) {
-    return "Not enough data yet to provide insights. Keep logging your daily wellness!";
+export async function getPredictiveInsights(logs, visits = [], appointments = []) {
+  if (!logs || logs.length === 0) {
+    return [{ title: "Need More Data", description: "Not enough data yet to provide insights. Keep logging your daily wellness!", type: "neutral" }];
   }
 
   if (!apiKey) {
-    return "Simulated Insight: We noticed you log data often. API key is missing to provide real insights.";
+    return [{ title: "Simulated Insight", description: "We noticed you log data often. API key is missing to provide real insights.", type: "neutral" }];
   }
 
   const prompt = `
     You are a helpful, reassuring predictive analyst for a daily wellness app designed for the elderly.
-    Analyze the following 14-day log history and provide a plain-english insight.
-    Identify any simple correlations between their symptoms, sleep, and diet.
-    Do NOT offer strict medical advice or diagnoses. Keep it to exactly two friendly, reassuring sentences.
+    Analyze the following recent data, which includes the patient's daily health logs, doctor's visits/care plans, and upcoming appointments.
     
-    Log History (JSON):
-    ${JSON.stringify(historyData)}
+    Generate exactly 2 to 5 distinct insights based on patterns you observe. 
+    Identify simple correlations between symptoms, sleep, diet, and doctor recommendations.
+    Do NOT offer strict medical advice or diagnoses. Keep descriptions to 1-2 friendly, reassuring sentences.
+
+    Return the result strictly as a JSON array of objects. Each object MUST have these exact keys:
+    - "title": A short 3-5 word title for the insight.
+    - "description": The 1-2 sentence reassuring observation.
+    - "type": A string that is exactly one of: "positive", "neutral", or "warning".
+
+    IMPORTANT: Return ONLY valid JSON, without markdown formatting or code blocks.
+    
+    Data Context:
+    Logs: ${JSON.stringify(logs)}
+    Doctor Visits: ${JSON.stringify(visits)}
+    Appointments: ${JSON.stringify(appointments)}
   `;
 
   try {
     const result = await generateWithFallback(prompt);
-    return result.response.text().trim();
+    const responseText = result.response.text();
+    const cleanText = responseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+    return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error generating insights with Gemini:", error);
-    return "We couldn't analyze your patterns today. Please check back later.";
+    return [{ title: "Analysis Failed", description: "We couldn't analyze your patterns today. Please check back later.", type: "warning" }];
   }
 }

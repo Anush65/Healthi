@@ -1,10 +1,11 @@
 import { parseWellnessLog } from '../services/gemini.js';
 import { addLog } from '../services/storage.js';
 import { showToast } from '../utils/toast.js';
+import { renderLayout } from '../utils/layout.js';
 
 export async function render() {
-  return `
-    <main class="centered-state" style="align-items:start;padding-top:clamp(24px,7vw,80px)">
+  return renderLayout(`
+    <div class="centered-state" style="align-items:start;padding-top:clamp(24px,7vw,80px)">
       <section style="width:min(100%,760px)">
         <a class="brand" href="#/dashboard" style="margin-bottom:38px"><span class="brand-mark">H</span><span>Healthi</span></a>
         <p class="eyebrow">Daily check-in</p>
@@ -28,7 +29,7 @@ export async function render() {
         </div>
         <p class="privacy-note">Healthi helps organize your information. It does not diagnose conditions or replace medical advice.</p>
       </section>
-    </main>`;
+    </div>`, 'log');
 }
 
 export function init() {

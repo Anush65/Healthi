@@ -1,8 +1,9 @@
 import { getAppointments, getLogs, getMetricLogs, getProfile, getVisits } from '../services/storage.js';
 import Chart from 'chart.js/auto';
+import { renderLayout } from '../utils/layout.js';
 
 export async function render() {
-  return `
+  return renderLayout(`
     <div style="margin-top: 20px; margin-bottom: 24px;" class="no-print">
       <h1>Health Export</h1>
       <p style="color: var(--text-secondary);">A clean view of your health history.</p>
@@ -13,7 +14,7 @@ export async function render() {
       <div id="patient-info" style="margin-bottom: 24px; color: var(--text-secondary);"></div>
       
       <h3 style="margin-bottom: 16px;">Symptom Severity (Last 30 Days)</h3>
-      <div style="width: 100%; max-width: 600px; margin-bottom: 32px;">
+      <div style="width: 100%; max-width: 600px; margin: 0 auto 32px;">
         <canvas id="severity-chart"></canvas>
       </div>
       
@@ -30,33 +31,7 @@ export async function render() {
       <div id="appointments-container"></div>
     </div>
     
-    <div class="no-print">
-      ${getBottomNav()}
-    </div>
-  `;
-}
-
-function getBottomNav() {
-  return `
-    <nav class="bottom-nav">
-      <a href="#/dashboard" class="nav-item">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-        Home
-      </a>
-      <a href="#/log" class="nav-item">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-        Log
-      </a>
-      <a href="#/insights" class="nav-item">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-        Insights
-      </a>
-      <a href="#/export" class="nav-item active">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        Export
-      </a>
-    </nav>
-  `;
+  `, 'export');
 }
 
 export async function init() {

@@ -1,67 +1,95 @@
-import { getLogs } from '../services/storage.js';
+import { getLogs, getVisits, getAppointments } from '../services/storage.js';
 import { getPredictiveInsights } from '../services/gemini.js';
+import { renderLayout, icon } from '../utils/layout.js';
 
 export async function render() {
-  return `
+  return renderLayout(`
     <div style="margin-top: 20px;">
       <h1>Smart Insights</h1>
-      <p style="color: var(--text-secondary); margin-bottom: 24px;">AI pattern recognition based on your logs.</p>
+      <p style="color: var(--text-secondary); margin-bottom: 24px;">AI pattern recognition across your health data.</p>
       
-      <div id="insights-container" class="card" style="min-height: 150px; display: flex; align-items: center; justify-content: center;">
-        <p style="color: var(--text-secondary);">Analyzing your recent logs...</p>
+      <div id="insights-container" style="display: grid; gap: 16px;">
+        <div class="card" style="min-height: 150px; display: flex; align-items: center; justify-content: center;">
+          <p style="color: var(--text-secondary);">Analyzing your health history...</p>
+        </div>
       </div>
+      <p style="margin-top: 24px; font-size: 0.85rem; color: var(--text-secondary); text-align: center;">
+        Note: This is pattern recognition, not medical advice.
+      </p>
     </div>
-    
-    ${getBottomNav()}
-  `;
-}
-
-function getBottomNav() {
-  return `
-    <nav class="bottom-nav">
-      <a href="#/dashboard" class="nav-item">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-        Home
-      </a>
-      <a href="#/log" class="nav-item">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-        Log
-      </a>
-      <a href="#/insights" class="nav-item active">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-        Insights
-      </a>
-      <a href="#/export" class="nav-item">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        Export
-      </a>
-    </nav>
-  `;
+  `, 'insights');
 }
 
 export async function init() {
   const container = document.getElementById('insights-container');
   
   try {
-    const logs = await getLogs();
-    // Only take the last 14 days for analysis to keep context window small
-    logs.sort((a, b) => new Date(b.date) - new Date(a.date));
-    const recentLogs = logs.slice(0, 14);
-    
-    const insightText = await getPredictiveInsights(recentLogs);
-    
-    container.innerHTML = `
-      <div>
-        <h3 style="margin-bottom: 12px; color: var(--blue-800);">Our Observations</h3>
-        <p style="font-size: 1.1rem; line-height: 1.6;">${insightText}</p>
-        <p style="margin-top: 16px; font-size: 0.85rem; color: var(--text-secondary);">
-          Note: This is pattern recognition, not medical advice.
-        </p>
-      </div>
-    `;
+    const [logs, visits, appointments] = await Promise.all([
+      getLogs(),
+      getVisits(),
+      getAppointments()
+    ]);
+
+    // Calculate max timestamp of data
+    const getTs = (arr, dateField) => arr.length ? Math.max(...arr.map(x => new Date(x.createdAt?.seconds ? x.createdAt.seconds * 1000 : (x.createdAt || x[dateField] || x.date || 0)).getTime())) : 0;
+    const maxTs = Math.max(getTs(logs, 'date'), getTs(visits, 'date'), getTs(appointments, 'scheduledDate'));
+
+    // Check cache
+    const cacheRaw = localStorage.getItem('healthi_cached_insights');
+    const cache = cacheRaw ? JSON.parse(cacheRaw) : null;
+    const isNewSession = !sessionStorage.getItem('healthi_insights_session');
+
+    let insightsArray = [];
+
+    if (!cache || maxTs > cache.timestamp || isNewSession) {
+      // Regenerate
+      const recentLogs = [...logs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 14);
+      insightsArray = await getPredictiveInsights(recentLogs, visits, appointments);
+      
+      localStorage.setItem('healthi_cached_insights', JSON.stringify({
+        timestamp: maxTs,
+        insights: insightsArray
+      }));
+      sessionStorage.setItem('healthi_insights_session', 'true');
+    } else {
+      // Use cache
+      insightsArray = cache.insights;
+    }
+
+    if (!Array.isArray(insightsArray)) insightsArray = [];
+
+    container.innerHTML = insightsArray.map(insight => {
+      let colorClass = 'var(--blue)';
+      let bgClass = '#e8eff5';
+      let iconName = 'spark';
+      
+      if (insight.type === 'positive') {
+        colorClass = 'var(--green)';
+        bgClass = 'var(--mint)';
+      } else if (insight.type === 'warning') {
+        colorClass = 'var(--danger)';
+        bgClass = '#fce7e2';
+      }
+
+      return `
+        <article class="card" style="display: flex; gap: 16px; align-items: flex-start; padding: 24px;">
+          <div style="display: grid; width: 44px; height: 44px; place-items: center; border-radius: 12px; background: ${bgClass}; color: ${colorClass}; flex-shrink: 0;">
+            ${icon(iconName)}
+          </div>
+          <div>
+            <h3 style="margin-bottom: 6px; font-size: 1.1rem; color: ${colorClass};">${insight.title || 'Observation'}</h3>
+            <p style="margin: 0; color: var(--text-secondary); line-height: 1.5;">${insight.description}</p>
+          </div>
+        </article>
+      `;
+    }).join('');
+
   } catch (err) {
+    console.error(err);
     container.innerHTML = `
-      <p style="color: var(--amber-700);">Could not load insights at this time.</p>
+      <div class="card" style="padding: 24px; text-align: center;">
+        <p style="color: var(--danger); margin: 0;">Could not load insights at this time.</p>
+      </div>
     `;
   }
 }
