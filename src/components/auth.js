@@ -74,7 +74,9 @@ export function init() {
 
   document.getElementById('google-btn')?.addEventListener('click', async () => {
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithPopup(auth, provider);
     } catch (error) {
       showToast(error.message);
     }
