@@ -1,4 +1,4 @@
-import { GoogleAuthProvider, signInWithPopup, signInWithRedirect } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithRedirect } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseConfigured } from '../services/firebase.js';
 import { createUserProfile } from '../services/storage.js';
@@ -36,28 +36,14 @@ export function init() {
   document.getElementById('google-btn')?.addEventListener('click', async (event) => {
     const button = event.currentTarget;
     button.disabled = true;
-    button.textContent = 'Signing in...';
+    button.textContent = 'Redirecting...';
     const provider = new GoogleAuthProvider();
-    // Use a timeout so the UI doesn't hang indefinitely if the popup is blocked
-    const popupPromise = signInWithPopup(auth, provider);
-    const timeoutMs = 20000;
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('popup_timeout')), timeoutMs));
     try {
-      await Promise.race([popupPromise, timeoutPromise]);
-      // If popup succeeds, log the current user for debugging
-      console.log('[Auth] popup sign-in success', { uid: auth.currentUser?.uid, email: auth.currentUser?.email });
+      // Use redirect flow to avoid popup blocking/COOP issues
+      await signInWithRedirect(auth, provider);
+      // The page will navigate; code after this typically won't run.
     } catch (error) {
-      if (error && error.message === 'popup_timeout') {
-        showToast('Sign-in popup timed out — attempting redirect flow.');
-        try {
-          await signInWithRedirect(auth, provider);
-          return; // redirect will navigate away
-        } catch (errRedirect) {
-          showToast(errRedirect.message || 'Redirect sign-in failed');
-        }
-      } else {
-        showToast(error.message || error.code || 'Sign-in failed');
-      }
+      showToast(error.message || error.code || 'Redirect sign-in failed');
       button.disabled = false;
       button.textContent = 'Sign in with Google';
     }
