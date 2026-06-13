@@ -1,5 +1,5 @@
 import { addMetricLog, getAppointments, getLogs, getMetricLogs, getProfile, getVisits, updateAppointment } from '../services/storage.js';
-import { getConditionConfig } from '../config/conditions.js';
+import { getConditionConfig, DefaultMetrics, ConditionRegistry } from '../config/conditions.js';
 import { showToast } from '../utils/toast.js';
 import { renderLayout, icon } from '../utils/layout.js';
 
@@ -39,6 +39,15 @@ export async function render() {
   const [profile, logs, metrics, appointments, visits] = await Promise.all([
     getProfile(), getLogs(), getMetricLogs(), getAppointments(), getVisits()
   ]);
+
+  const activeConditions = [];
+  Object.values(DefaultMetrics).forEach(c => activeConditions.push(c));
+  (profile?.conditions || []).forEach(condId => {
+    if (ConditionRegistry[condId]) {
+      activeConditions.push(ConditionRegistry[condId]);
+    }
+  });
+
   const nextAppointment = appointments
     .filter((item) => ['scheduled', 'rescheduled'].includes(item.status))
     .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))[0];
@@ -85,35 +94,31 @@ export async function render() {
           </a>
         </section>
 
-        <section class="section-block">
-          <div class="section-heading"><div><p class="eyebrow">Today</p><h2>Your care plan</h2></div></div>
-          <div class="care-grid">
-            <article class="metric-card">
-              <div class="metric-label"><span class="metric-dot coral"></span>Blood pressure</div>
-              <strong>${latestBp ? `${latestBp.metrics.systolic}/${latestBp.metrics.diastolic}` : '--/--'}</strong>
-              <span>mmHg</span><small class="trend positive">↓ Improving</small>
-            </article>
-            <article class="metric-card">
-              <div class="metric-label"><span class="metric-dot gold"></span>Blood sugar</div>
-              <strong>${latestSugar?.metrics.blood_sugar || '--'}</strong>
-              <span>mg/dL</span><small class="trend">In your usual range</small>
-            </article>
-            <article class="metric-card">
-              <div class="metric-label"><span class="metric-dot" style="background-color: #10b981"></span>Body Weight</div>
-              <strong>${latestWeight?.metrics.weight || '--'}</strong>
-              <span>lbs</span><small class="trend">Steady</small>
-            </article>
-            <article class="metric-card">
-              <div class="metric-label"><span class="metric-dot" style="background-color: #8b5cf6"></span>Oxygen Level</div>
-              <strong>${latestOxygen?.metrics.spo2 || '--'}</strong>
-              <span>%</span><small class="trend">Normal range</small>
-            </article>
-            <article class="metric-card">
-              <div class="metric-label"><span class="metric-dot" style="background-color: #ef4444"></span>Temperature</div>
-              <strong>${latestTemp?.metrics.temperature || '--'}</strong>
-              <span>°F</span><small class="trend">Normal range</small>
-            </article>
-            <article class="appointment-card">
+    <section class="section-block">
+      <div class="section-heading"><div><p class="eyebrow">Today</p><h2>Your care plan</h2></div></div>
+      <div class="care-grid">
+        ${activeConditions.map(cond => {
+          const latestMetric = metrics.filter(m => m.condition === cond.id).at(-1);
+          return cond.metrics.map(mDef => {
+            let valueStr = '--';
+            if (latestMetric && latestMetric.metrics && latestMetric.metrics[mDef.id] !== undefined) {
+              valueStr = latestMetric.metrics[mDef.id];
+            }
+            const unit = mDef.label.includes('(') ? mDef.label.split('(')[1].replace(')', '') : '';
+            const title = mDef.label.split('(')[0].trim();
+            const loggableIndicator = mDef.patientLoggable ? '<small class="trend positive">+ Log Value</small>' : '<small class="trend">Lab Only</small>';
+            
+            // Note: We'll make these clickable in a future step.
+            return `
+            <article class="metric-card" style="cursor: pointer;" data-cond="${cond.id}" data-metric="${mDef.id}" data-loggable="${mDef.patientLoggable}">
+              <div class="metric-label"><span class="metric-dot" style="background-color: ${mDef.chartConfig.color}"></span>${title}</div>
+              <strong>${valueStr}</strong>
+              <span>${unit}</span>${loggableIndicator}
+            </article>`;
+          }).join('');
+        }).join('')}
+        
+        <article class="appointment-card">
               ${nextAppointment ? `
                 <div class="appointment-date"><strong>${new Date(nextAppointment.scheduledDate).getDate()}</strong><span>${new Date(nextAppointment.scheduledDate).toLocaleDateString(undefined, { month: 'short' })}</span></div>
                 <div><p class="eyebrow">Next appointment</p><h3>${nextAppointment.doctorName}</h3><p>${new Date(nextAppointment.scheduledDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · ${nextAppointment.reason}</p></div>
