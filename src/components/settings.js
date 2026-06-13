@@ -116,12 +116,21 @@ export function init() {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const button = form.querySelector('button[type="submit"]');
+      if (!button) {
+        console.error('Submit button not found');
+        return;
+      }
       button.disabled = true;
       button.textContent = 'Saving...';
       try {
         const profile = await getProfile();
+        if (!profile) {
+          showToast('Profile not found. Please try again.');
+          return;
+        }
         const selected = Array.from(document.querySelectorAll('input[name="setting-condition"]:checked')).map(cb => cb.value);
-        const other = document.getElementById('other-setting').value.split(',').map(c => c.trim()).filter(c => c);
+        const otherInput = document.getElementById('other-setting');
+        const other = otherInput ? otherInput.value.split(',').map(c => c.trim()).filter(c => c) : [];
         const newConditions = [...new Set([...selected, ...other])];
 
         await setProfile({ ...profile, conditions: newConditions });

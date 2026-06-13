@@ -194,6 +194,11 @@ export function init() {
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const button = form.querySelector('button[type="submit"]');
+      if (!button) {
+        console.error('Submit button not found in form');
+        showToast('Form error: submit button not found');
+        return;
+      }
       button.disabled = true;
       button.textContent = 'Saving...';
       try {
@@ -213,6 +218,10 @@ export function init() {
 
   document.getElementById('reschedule-btn')?.addEventListener('click', async (event) => {
     const button = event.currentTarget;
+    if (!button) {
+      console.error('Reschedule button not found');
+      return;
+    }
     button.disabled = true;
     button.textContent = 'Rescheduling...';
     try {
