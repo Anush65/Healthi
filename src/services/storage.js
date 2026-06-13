@@ -31,6 +31,19 @@ export async function getLogsByDateRange(startDate, endDate) {
   });
 }
 
+const METRICS_KEY = 'healthi_metrics';
+
+export async function getMetricLogs() {
+  const logs = await get(METRICS_KEY);
+  return logs || [];
+}
+
+export async function addMetricLog(metricData) {
+  const logs = await getMetricLogs();
+  logs.push({ ...metricData, id: Date.now().toString(), date: new Date().toISOString() });
+  return await set(METRICS_KEY, logs);
+}
+
 export async function clearAllData() {
   await clear();
 }

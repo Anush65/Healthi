@@ -8,3 +8,5 @@
 * **Phase 6: Polish**: Created `settings.js` allowing data reset, polished the dashboard header, and finalized print styles for high-contrast accessibility.
 * **Phase 7: Tests & Docs**: Finalized the `README.md` and added unit tests for `storage.js` using Vitest and `fake-indexeddb`.
 * **Fixes**: Fixed a build error regarding invalid unicode escape sequences in `export.js`.
+* **Enhancements**: Implemented a robust fallback mechanism in `gemini.js` to automatically cycle through multiple Gemini models (`gemini-2.0-flash`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-flash-latest`) to ensure uptime if a single model is overloaded or fails.
+* **Phase 8: Dynamic UI Architecture**: Refactored the dashboard and settings to use a `Condition Registry` system. Added support for dynamic quick-logging widgets and condition-specific charts (e.g., Blood Sugar for Diabetes, Blood Pressure for Hypertension) directly driven by the user's mapped profile conditions.

@@ -1,4 +1,6 @@
-import { getLogs, getProfile } from '../services/storage.js';
+import { getLogs, getProfile, getMetricLogs, addMetricLog } from '../services/storage.js';
+import { getConditionConfig } from '../config/conditions.js';
+import Chart from 'chart.js/auto';
 
 export async function render() {
   const profile = await getProfile();
@@ -40,6 +42,34 @@ export async function render() {
     }).join('');
   }
 
+  let widgetsHtml = '';
+  if (profile && profile.conditions) {
+    for (const condName of profile.conditions) {
+      const config = getConditionConfig(condName);
+      if (config) {
+        widgetsHtml += `
+          <div class="card condition-widget" data-condition="${config.id}" style="margin-bottom: 24px;">
+            <h3 style="margin-bottom: 16px;">${config.name} Tracker</h3>
+            
+            <div style="width: 100%; max-width: 600px; margin-bottom: 16px;">
+              <canvas id="chart-${config.id}"></canvas>
+            </div>
+            
+            <form class="widget-form" data-condition="${config.id}" style="display: flex; gap: 8px; align-items: flex-end;">
+              ${config.metrics.map(m => `
+                <div style="flex: 1;">
+                  <label style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 4px;">${m.label}</label>
+                  <input type="${m.type}" name="${m.id}" placeholder="${m.placeholder}" required style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: var(--radius-button); font-size: 1rem;">
+                </div>
+              `).join('')}
+              <button type="submit" class="btn-primary" style="padding: 10px 16px; height: 42px;">Log</button>
+            </form>
+          </div>
+        `;
+      }
+    }
+  }
+
   return `
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 20px; margin-bottom: 24px;">
       <div>
@@ -51,8 +81,10 @@ export async function render() {
       </a>
     </div>
     
+    ${widgetsHtml}
+    
     <div class="card">
-      <h3 style="margin-bottom: 16px;">Recent Entries</h3>
+      <h3 style="margin-bottom: 16px;">Recent General Entries</h3>
       ${ledgerHtml}
       
       <a href="#/log" style="display: block; width: 100%; text-align: center; padding: 16px; background: var(--blue-50); color: var(--blue-600); font-weight: 600; border-radius: var(--radius-button); text-decoration: none; margin-top: 24px;">
@@ -87,6 +119,65 @@ function getBottomNav() {
   `;
 }
 
-export function init() {
-  // Any event listeners for dashboard
+export async function init() {
+  const profile = await getProfile();
+  const allMetricLogs = await getMetricLogs();
+
+  if (profile && profile.conditions) {
+    for (const condName of profile.conditions) {
+      const config = getConditionConfig(condName);
+      if (!config) continue;
+
+      const conditionLogs = allMetricLogs
+        .filter(l => l.condition === config.id)
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .slice(-30);
+
+      const ctx = document.getElementById(`chart-${config.id}`);
+      if (ctx) {
+        const labels = conditionLogs.map(l => new Date(l.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+        const datasets = config.metrics.map(m => {
+          return {
+            label: m.chartConfig.label,
+            data: conditionLogs.map(l => l.metrics[m.id] || null),
+            borderColor: m.chartConfig.color,
+            backgroundColor: m.chartConfig.bgColor,
+            fill: true,
+            tension: 0.3
+          };
+        });
+
+        new Chart(ctx, {
+          type: 'line',
+          data: { labels, datasets },
+          options: {
+            responsive: true,
+            scales: { y: { beginAtZero: false } }
+          }
+        });
+      }
+
+      const form = document.querySelector(`form[data-condition="${config.id}"]`);
+      if (form) {
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const metricsData = {};
+          config.metrics.forEach(m => {
+            metricsData[m.id] = Number(form.elements[m.id].value);
+          });
+          
+          await addMetricLog({
+            condition: config.id,
+            metrics: metricsData
+          });
+          
+          import('../utils/toast.js').then(({ showToast }) => showToast(`Logged ${config.name} data!`));
+          
+          const app = document.getElementById('app');
+          app.innerHTML = await render();
+          init();
+        });
+      }
+    }
+  }
 }
