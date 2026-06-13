@@ -71,8 +71,34 @@ export async function addMetricLog(metricData) {
   return docRef.id;
 }
 
+import { deleteUser } from 'firebase/auth';
+
 export async function clearAllData() {
   await auth.signOut();
+}
+
+export async function deleteAccount() {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated");
+  
+  // Delete profile
+  const { deleteDoc } = await import('firebase/firestore');
+  await deleteDoc(doc(db, "users", user.uid));
+  
+  // Delete logs
+  const logs = await getLogs();
+  for (const log of logs) {
+    await deleteDoc(doc(db, "wellnessLogs", log.id));
+  }
+  
+  // Delete metric logs
+  const metrics = await getMetricLogs();
+  for (const metric of metrics) {
+    await deleteDoc(doc(db, "metricLogs", metric.id));
+  }
+  
+  // Delete Firebase auth user
+  await deleteUser(user);
 }
 
 // Doctor specific functions

@@ -33,11 +33,19 @@ export async function render() {
         </form>
       </div>
 
+      <div class="card" style="margin-bottom: 16px;">
+        <h3 style="margin-bottom: 12px;">Account Access</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 16px;">Sign out of your account on this device.</p>
+        <button id="logout-btn" class="btn-primary" style="background-color: var(--slate-700); width: 100%;">
+          Log Out
+        </button>
+      </div>
+
       <div class="card">
         <h3 style="margin-bottom: 12px; color: var(--amber-700);">Danger Zone</h3>
-        <p style="color: var(--text-secondary); margin-bottom: 16px;">This will permanently delete all your health logs and profile data.</p>
-        <button id="reset-btn" class="btn-primary" style="background-color: var(--amber-700); width: 100%;">
-          Reset All Data
+        <p style="color: var(--text-secondary); margin-bottom: 16px;">This will permanently delete your profile, health logs, and account. This cannot be undone.</p>
+        <button id="delete-btn" class="btn-primary" style="background-color: var(--amber-700); width: 100%;">
+          Delete Account & Data
         </button>
       </div>
       
@@ -49,13 +57,31 @@ export async function render() {
 }
 
 export function init() {
-  const resetBtn = document.getElementById('reset-btn');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', async () => {
-      const confirmReset = confirm("Are you sure you want to delete all your data? This cannot be undone.");
-      if (confirmReset) {
-        await clearAllData();
-        window.location.hash = '#/onboarding';
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      await import('../services/storage.js').then(m => m.clearAllData());
+      window.location.hash = '#/auth';
+    });
+  }
+
+  const deleteBtn = document.getElementById('delete-btn');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async () => {
+      const confirmDelete = confirm("Are you sure you want to PERMANENTLY delete your account and all data? This cannot be undone.");
+      if (confirmDelete) {
+        try {
+          await import('../services/storage.js').then(m => m.deleteAccount());
+          window.location.hash = '#/auth';
+        } catch (err) {
+          console.error(err);
+          // If it's a recent login requirement error:
+          if (err.code === 'auth/requires-recent-login') {
+             alert('For security reasons, you must log out and log back in before deleting your account.');
+          } else {
+             alert('Failed to delete account: ' + err.message);
+          }
+        }
       }
     });
   }
