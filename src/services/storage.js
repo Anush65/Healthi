@@ -458,3 +458,66 @@ export async function getPatientMetricLogs(patientUid) {
 function snapshotToArray(snapshot) {
   return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
 }
+
+export async function seedCurrentPatient() {
+  const profile = await getProfile();
+  if (!profile || profile.role !== 'patient') throw new Error('Must be logged in as a patient to seed data.');
+  
+  const user = auth.currentUser;
+  const daysAgo = (days, hour = 9) => {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    d.setHours(hour, 0, 0, 0);
+    return d.toISOString();
+  };
+
+  const logs = [
+    { date: daysAgo(14, 8), raw_text: "Slept poorly, joints aching a bit.", parsed_data: { symptoms: ["joint pain"], sleep: "poor", severity: "medium", summary: "Aching joints after bad sleep" } },
+    { date: daysAgo(12, 9), raw_text: "Feeling okay today, went for a short walk.", parsed_data: { symptoms: [], sleep: "good", severity: "low", summary: "Good energy, walked." } },
+    { date: daysAgo(10, 8), raw_text: "A bit of a headache this morning.", parsed_data: { symptoms: ["headache"], sleep: "fair", severity: "low", summary: "Morning headache." } },
+    { date: daysAgo(7, 10), raw_text: "Joints really hurting today, skipped my walk.", parsed_data: { symptoms: ["joint pain"], sleep: "poor", severity: "high", summary: "Severe joint pain, no exercise." } },
+    { date: daysAgo(5, 8), raw_text: "Slept great, feeling much better.", parsed_data: { symptoms: [], sleep: "excellent", severity: "low", summary: "Slept well, feeling good." } },
+    { date: daysAgo(2, 9), raw_text: "Normal day, nothing to report.", parsed_data: { symptoms: [], sleep: "normal", severity: "low", summary: "Normal day." } },
+    { date: daysAgo(0, 8), raw_text: "Slight headache, but otherwise fine.", parsed_data: { symptoms: ["headache"], sleep: "fair", severity: "low", summary: "Slight headache." } }
+  ];
+
+  const metrics = [
+    { condition: 'hypertension', date: daysAgo(14, 8), metrics: { systolic: 135, diastolic: 85 } },
+    { condition: 'hypertension', date: daysAgo(10, 8), metrics: { systolic: 142, diastolic: 88 } },
+    { condition: 'hypertension', date: daysAgo(7, 10), metrics: { systolic: 150, diastolic: 92 } },
+    { condition: 'hypertension', date: daysAgo(5, 8), metrics: { systolic: 130, diastolic: 80 } },
+    { condition: 'hypertension', date: daysAgo(0, 8), metrics: { systolic: 128, diastolic: 82 } },
+    
+    { condition: 'diabetes', date: daysAgo(14, 8), metrics: { blood_sugar: 120 } },
+    { condition: 'diabetes', date: daysAgo(10, 8), metrics: { blood_sugar: 135 } },
+    { condition: 'diabetes', date: daysAgo(7, 10), metrics: { blood_sugar: 155 } },
+    { condition: 'diabetes', date: daysAgo(5, 8), metrics: { blood_sugar: 110 } },
+    { condition: 'diabetes', date: daysAgo(0, 8), metrics: { blood_sugar: 105 } },
+
+    { condition: 'body_weight', date: daysAgo(14, 8), metrics: { weight: 165 } },
+    { condition: 'body_weight', date: daysAgo(7, 8), metrics: { weight: 166 } },
+    { condition: 'body_weight', date: daysAgo(0, 8), metrics: { weight: 164 } }
+  ];
+
+  const promises = [];
+
+  for (const log of logs) {
+    promises.push(addDoc(collection(db, 'healthEntries'), {
+      ...log,
+      patientId: user.uid,
+      createdAt: serverTimestamp()
+    }));
+  }
+
+  for (const metric of metrics) {
+    if (profile.conditions?.includes(metric.condition)) {
+      promises.push(addDoc(collection(db, 'metricLogs'), {
+        ...metric,
+        patientId: user.uid,
+        createdAt: serverTimestamp()
+      }));
+    }
+  }
+
+  await Promise.all(promises);
+}
