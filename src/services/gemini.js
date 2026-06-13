@@ -1,9 +1,33 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize the API
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-const genAI = new GoogleGenerativeAI(apiKey);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+let genAI = null;
+
+async function generateWithFallback(prompt) {
+  if (!genAI) genAI = new GoogleGenerativeAI(apiKey);
+
+  const modelsToTry = [
+    'gemini-2.0-flash',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-flash-latest',
+  ];
+
+  let lastError;
+  for (const modelName of modelsToTry) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      return result;
+    } catch (err) {
+      console.warn(`[Gemini] ${modelName} failed:`, err.message);
+      lastError = err;
+      // Abort immediately on auth errors
+      if (err.status === 401 || err.status === 403) throw err;
+    }
+  }
+  throw lastError;
+}
 
 /**
  * Parses a raw text log into structured JSON data.
@@ -37,7 +61,7 @@ export async function parseWellnessLog(text) {
   `;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFallback(prompt);
     const responseText = result.response.text();
     // Clean up potential markdown formatting if the model still includes it
     const cleanText = responseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
@@ -73,7 +97,7 @@ export async function getPredictiveInsights(historyData) {
   `;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFallback(prompt);
     return result.response.text().trim();
   } catch (error) {
     console.error("Error generating insights with Gemini:", error);

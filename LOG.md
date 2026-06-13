@@ -7,3 +7,4 @@
 * **Phase 5: Insights & Export**: Created `insights.js` for background pattern recognition from Gemini, and `export.js` leveraging Chart.js for a printable doctor report.
 * **Phase 6: Polish**: Created `settings.js` allowing data reset, polished the dashboard header, and finalized print styles for high-contrast accessibility.
 * **Phase 7: Tests & Docs**: Finalized the `README.md` and added unit tests for `storage.js` using Vitest and `fake-indexeddb`.
+* **Fixes**: Fixed a build error regarding invalid unicode escape sequences in `export.js`.
