@@ -101,15 +101,15 @@ export async function render() {
           <div class="card" style="padding: 12px 24px;">
             ${profile.medicines.map((med, idx) => {
               const isChecked = todayMedLogs.some(l => l.medicineName === med.name) ? 'checked' : '';
-              return \`
-                <div style="display: flex; align-items: center; gap: 16px; padding: 14px 0; \${idx < profile.medicines.length - 1 ? 'border-bottom: 1px solid var(--line);' : ''}">
-                  <input type="checkbox" class="med-checkbox" data-med="\${med.name}" id="med-\${med.id}" \${isChecked} style="width: 28px; height: 28px; padding: 0; margin: 0; cursor: pointer; accent-color: var(--green);">
-                  <label for="med-\${med.id}" style="cursor: pointer; flex: 1; margin: 0;">
-                    <strong style="font-size: 1.15rem; display: block;">\${med.name}</strong>
-                    <span class="muted" style="font-size: 0.9rem;">\${med.instructions || 'Daily tracking'}</span>
+              return `
+                <div style="display: flex; align-items: center; gap: 16px; padding: 14px 0; ${idx < profile.medicines.length - 1 ? 'border-bottom: 1px solid var(--line);' : ''}">
+                  <input type="checkbox" class="med-checkbox" data-med="${med.name}" id="med-${med.id}" ${isChecked} style="width: 28px; height: 28px; padding: 0; margin: 0; cursor: pointer; accent-color: var(--green);">
+                  <label for="med-${med.id}" style="cursor: pointer; flex: 1; margin: 0;">
+                    <strong style="font-size: 1.15rem; display: block;">${med.name}</strong>
+                    <span class="muted" style="font-size: 0.9rem;">${med.instructions || 'Daily tracking'}</span>
                   </label>
                 </div>
-              \`;
+              `;
             }).join('')}
           </div>
         </section>` : ''}

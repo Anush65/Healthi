@@ -334,11 +334,11 @@ function bindClinicalForm() {
     div.className = 'med-item';
     div.style.display = 'flex';
     div.style.gap = '8px';
-    div.innerHTML = \`
+    div.innerHTML = `
       <input name="medicine_name[]" placeholder="Medicine name" style="flex:2" required>
       <input name="medicine_dosage[]" placeholder="Dosage/Instructions" style="flex:1">
       <button type="button" class="btn btn-secondary" onclick="this.parentElement.remove()" style="min-height:auto; padding: 12px; color: var(--danger);">Remove</button>
-    \`;
+    `;
     list.appendChild(div);
   });
 
