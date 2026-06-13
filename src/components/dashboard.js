@@ -149,6 +149,23 @@ export async function render() {
           </div>
 
         </section>
+
+        <!-- Metric Upload Modal -->
+        <dialog id="metric-modal" class="card" style="padding: 24px; border: none; border-radius: var(--radius-card); box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 400px; width: 90%; margin: auto;">
+          <form id="metric-form">
+            <h3 id="metric-modal-title" style="margin-bottom: 8px;">Log Value</h3>
+            <p id="metric-modal-desc" class="muted" style="margin-bottom: 16px;">Enter your latest reading.</p>
+            <div class="field" style="margin-bottom: 16px;">
+              <input type="number" id="metric-modal-input" required step="any" style="width: 100%; font-size: 1.2rem; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+            </div>
+            <input type="hidden" id="metric-modal-cond">
+            <input type="hidden" id="metric-modal-metric">
+            <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('metric-modal').close()" style="flex: 1;">Cancel</button>
+              <button type="submit" class="btn btn-primary" style="flex: 1;">Save</button>
+            </div>
+          </form>
+        </dialog>
     `, 'home');
 }
 
@@ -162,5 +179,37 @@ export function init() {
     await updateAppointment(event.currentTarget.dataset.id, { scheduledDate: date.toISOString(), status: 'scheduled' });
     showToast('Appointment moved to next week.');
     window.dispatchEvent(new Event('hashchange'));
+  });
+
+  document.querySelectorAll('.metric-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const isLoggable = card.dataset.loggable === 'true';
+      if (!isLoggable) {
+        showToast('This is a lab test result. Only your doctor can log this metric.');
+        return;
+      }
+      const title = card.querySelector('.metric-label').innerText;
+      document.getElementById('metric-modal-title').innerText = `Log ${title}`;
+      document.getElementById('metric-modal-cond').value = card.dataset.cond;
+      document.getElementById('metric-modal-metric').value = card.dataset.metric;
+      document.getElementById('metric-modal-input').value = '';
+      document.getElementById('metric-modal').showModal();
+    });
+  });
+
+  document.getElementById('metric-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const cond = document.getElementById('metric-modal-cond').value;
+    const metric = document.getElementById('metric-modal-metric').value;
+    const val = Number(document.getElementById('metric-modal-input').value);
+    
+    try {
+      await import('../services/storage.js').then(m => m.addMetricLog({ condition: cond, metrics: { [metric]: val } }));
+      showToast('Reading saved successfully.');
+      document.getElementById('metric-modal').close();
+      window.dispatchEvent(new Event('hashchange'));
+    } catch (err) {
+      showToast('Failed to save reading.');
+    }
   });
 }

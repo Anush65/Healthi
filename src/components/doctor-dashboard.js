@@ -160,8 +160,12 @@ async function renderPatient(patientId) {
 }
 
 function renderReadingForms(profile) {
-  const requiredConditions = ['hypertension', 'diabetes', 'temperature', 'oxygen_level', 'body_weight'];
-  const conditions = requiredConditions
+  const requiredConditions = ['temperature', 'oxygen_level', 'body_weight', ...(profile.conditions || [])];
+  
+  // We need to deduplicate in case default metrics are in profile.conditions
+  const uniqueConditions = [...new Set(requiredConditions)];
+  
+  const conditions = uniqueConditions
     .map((condition) => getConditionConfig(condition))
     .filter(Boolean);
 
@@ -173,7 +177,7 @@ function renderReadingForms(profile) {
     condition.metrics.map((metric) => `
       <div class="field">
         <label for="${condition.id}-${metric.id}">${metric.label}</label>
-        <input id="${condition.id}-${metric.id}" name="metric_${condition.id}_${metric.id}" type="${metric.type}" min="0" placeholder="${metric.placeholder}">
+        <input id="${condition.id}-${metric.id}" name="metric_${condition.id}_${metric.id}" type="${metric.type}" min="0" placeholder="${metric.placeholder}" step="any">
       </div>
     `)
   ).join('');
