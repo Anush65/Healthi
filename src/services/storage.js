@@ -102,6 +102,60 @@ export async function deleteAccount() {
 }
 
 // Doctor specific functions
+export async function linkPatientToDoctor(patientCode) {
+  const doctor = auth.currentUser;
+  if (!doctor) throw new Error("Not authenticated");
+  
+  // Find the patient by their 6-character code
+  const q = query(collection(db, "users"), where("patientCode", "==", patientCode), where("role", "==", "patient"));
+  const querySnapshot = await getDocs(q);
+  
+  if (querySnapshot.empty) {
+    throw new Error("No patient found with that code.");
+  }
+  
+  const patientDoc = querySnapshot.docs[0];
+  const patientUid = patientDoc.id;
+  
+  // Get doctor's current patients array
+  const doctorDocRef = doc(db, "users", doctor.uid);
+  const doctorSnap = await getDoc(doctorDocRef);
+  
+  let patients = [];
+  if (doctorSnap.exists() && doctorSnap.data().patients) {
+    patients = doctorSnap.data().patients;
+  }
+  
+  if (!patients.includes(patientUid)) {
+    patients.push(patientUid);
+    await setDoc(doctorDocRef, { patients }, { merge: true });
+  }
+  
+  return { id: patientUid, ...patientDoc.data() };
+}
+
+export async function getDoctorPatients() {
+  const doctor = auth.currentUser;
+  if (!doctor) return [];
+  
+  const doctorSnap = await getDoc(doc(db, "users", doctor.uid));
+  if (!doctorSnap.exists() || !doctorSnap.data().patients || doctorSnap.data().patients.length === 0) {
+    return [];
+  }
+  
+  const patientUids = doctorSnap.data().patients;
+  const patientsList = [];
+  
+  for (const uid of patientUids) {
+    const pSnap = await getDoc(doc(db, "users", uid));
+    if (pSnap.exists()) {
+      patientsList.push({ id: uid, ...pSnap.data() });
+    }
+  }
+  
+  return patientsList;
+}
+
 export async function getPatientProfile(patientUid) {
   if (!patientUid) return null;
   const docSnap = await getDoc(doc(db, "users", patientUid));

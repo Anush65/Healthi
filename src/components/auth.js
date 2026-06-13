@@ -93,10 +93,12 @@ export function init() {
         submitRoleBtn.style.opacity = '0.5';
 
         const role = document.querySelector('input[name="role"]:checked').value;
+        const generateCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
         
         await setDoc(doc(db, "users", user.uid), {
           email: user.email,
           role: role,
+          patientCode: role === 'patient' ? generateCode() : null,
           createdAt: new Date().toISOString(),
           onboardingComplete: false
         });

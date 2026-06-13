@@ -1,7 +1,8 @@
-import { getPatientProfile, getPatientLogs, getPatientMetricLogs } from '../services/storage.js';
+import { getPatientProfile, getPatientLogs, getPatientMetricLogs, getDoctorPatients, linkPatientToDoctor } from '../services/storage.js';
 import { getConditionConfig } from '../config/conditions.js';
 import { auth } from '../services/firebase.js';
 import Chart from 'chart.js/auto';
+import { showToast } from '../utils/toast.js';
 
 export async function render() {
   return `
@@ -12,14 +13,23 @@ export async function render() {
       </div>
 
       <div class="card" style="margin-bottom: 24px;">
-        <h3 style="margin-bottom: 12px;">Load Patient</h3>
+        <h3 style="margin-bottom: 12px;">Link New Patient</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.95rem;">Enter the 6-character code provided by your patient to link them to your account.</p>
         <div style="display: flex; gap: 8px;">
-          <input type="text" id="patient-uid" placeholder="Enter Patient UID" style="flex: 1; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-button); font-size: 1rem;">
-          <button id="load-patient-btn" class="btn-primary" style="padding: 12px 24px;">Load</button>
+          <input type="text" id="patient-code" placeholder="e.g. A8B2X9" style="flex: 1; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-button); font-size: 1rem; text-transform: uppercase;">
+          <button id="link-patient-btn" class="btn-primary" style="padding: 12px 24px;">Link Patient</button>
+        </div>
+      </div>
+      
+      <div class="card" style="margin-bottom: 24px;">
+        <h3 style="margin-bottom: 16px;">My Patients</h3>
+        <div id="patients-list">
+          <p style="color: var(--text-secondary);">Loading patients...</p>
         </div>
       </div>
       
       <div id="patient-view" style="display: none;">
+        <h2 style="margin-bottom: 24px; padding-top: 16px; border-top: 2px solid var(--border-color);">Viewing Patient Data</h2>
         <div class="card" style="margin-bottom: 24px;">
           <h2 style="margin-bottom: 16px;">Patient Profile</h2>
           <div id="patient-info"></div>
@@ -41,12 +51,63 @@ export function init() {
     auth.signOut();
   });
 
-  document.getElementById('load-patient-btn').addEventListener('click', async () => {
-    const uid = document.getElementById('patient-uid').value.trim();
-    if (!uid) return;
+  const loadPatientsList = async () => {
+    try {
+      const patients = await getDoctorPatients();
+      const container = document.getElementById('patients-list');
+      if (patients.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-secondary);">You have no patients linked yet.</p>';
+        return;
+      }
+      
+      container.innerHTML = patients.map(p => `
+        <div class="patient-item" data-uid="${p.id}" style="padding: 16px; border: 1px solid var(--border-color); border-radius: var(--radius-button); margin-bottom: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--slate-50);">
+          <div>
+            <strong style="font-size: 1.1rem;">Patient ${p.patientCode || p.id.substring(0,6)}</strong>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 4px;">Age: ${p.age || 'N/A'} | Conditions: ${(p.conditions || []).join(', ') || 'None'}</div>
+          </div>
+          <div style="color: var(--blue-600); font-weight: 600;">View Data &rarr;</div>
+        </div>
+      `).join('');
+      
+      document.querySelectorAll('.patient-item').forEach(el => {
+        el.addEventListener('click', () => loadPatientData(el.dataset.uid));
+      });
+    } catch (e) {
+      console.error(e);
+      document.getElementById('patients-list').innerHTML = '<p>Error loading patients.</p>';
+    }
+  };
+
+  document.getElementById('link-patient-btn').addEventListener('click', async () => {
+    const code = document.getElementById('patient-code').value.trim().toUpperCase();
+    if (!code) return;
     
+    const btn = document.getElementById('link-patient-btn');
+    btn.disabled = true;
+    btn.innerText = 'Linking...';
+    
+    try {
+      await linkPatientToDoctor(code);
+      showToast('Patient linked successfully!');
+      document.getElementById('patient-code').value = '';
+      await loadPatientsList();
+    } catch (err) {
+      showToast('Error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerText = 'Link Patient';
+    }
+  });
+
+  const loadPatientData = async (uid) => {
     const view = document.getElementById('patient-view');
     view.style.display = 'block';
+    view.scrollIntoView({ behavior: 'smooth' });
+    
+    document.getElementById('patient-info').innerHTML = '<p>Loading patient data...</p>';
+    document.getElementById('patient-logs').innerHTML = '';
+    document.getElementById('patient-widgets').innerHTML = '';
     
     try {
       const profile = await getPatientProfile(uid);
@@ -61,7 +122,7 @@ export function init() {
       document.getElementById('patient-info').innerHTML = `
         <p><strong>Age:</strong> ${profile.age || 'N/A'}</p>
         <p><strong>Conditions:</strong> ${(profile.conditions || []).join(', ') || 'None'}</p>
-        <p><strong>UID:</strong> ${uid}</p>
+        <p><strong>Patient Code:</strong> ${profile.patientCode || 'N/A'}</p>
       `;
       
       // Render logs
@@ -146,5 +207,8 @@ export function init() {
       console.error(err);
       document.getElementById('patient-info').innerHTML = '<p>Error loading patient data.</p>';
     }
-  });
+  };
+
+  // Load patients list on init
+  loadPatientsList();
 }

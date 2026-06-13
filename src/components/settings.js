@@ -16,10 +16,22 @@ export async function render() {
 
   const otherConds = profile?.conditions?.filter(c => !getConditionConfig(c)) || [];
 
+  const patientCodeHtml = profile?.role === 'patient' ? `
+    <div class="card" style="margin-bottom: 16px;">
+      <h3 style="margin-bottom: 12px;">Your Patient Code</h3>
+      <p style="color: var(--text-secondary); margin-bottom: 16px;">Share this code with your doctor so they can view your health data.</p>
+      <div style="background: var(--slate-200); padding: 16px; border-radius: var(--radius-button); text-align: center; font-size: 1.5rem; font-weight: 700; letter-spacing: 4px; color: var(--slate-900);">
+        ${profile.patientCode || 'N/A'}
+      </div>
+    </div>
+  ` : '';
+
   return `
     <div style="margin-top: 20px;">
       <h1>Settings</h1>
       <p style="color: var(--text-secondary); margin-bottom: 24px;">Manage your preferences and data.</p>
+      
+      ${patientCodeHtml}
       
       <div class="card" style="margin-bottom: 16px;">
         <h3 style="margin-bottom: 16px;">Manage Conditions</h3>
