@@ -15,6 +15,7 @@ function nav(activePage) {
     <a class="nav-link ${activePage === 'log' ? 'active' : ''}" href="#/log">${icon('plus')}<span>Log</span></a>
     <a class="nav-link ${activePage === 'insights' ? 'active' : ''}" href="#/insights">${icon('spark')}<span>Insights</span></a>
     <a class="nav-link ${activePage === 'export' ? 'active' : ''}" href="#/export">${icon('file')}<span>Report</span></a>
+    <a class="nav-link ${activePage === 'settings' ? 'active' : ''}" href="#/settings">${icon('settings')}<span>Settings</span></a>
   </nav>`;
 }
 

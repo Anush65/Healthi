@@ -1,5 +1,6 @@
 import { clearAllData, getProfile, setProfile } from '../services/storage.js';
 import { ConditionRegistry, getConditionConfig } from '../config/conditions.js';
+import { renderLayout } from '../utils/layout.js';
 
 export async function render() {
   const profile = await getProfile();
@@ -26,7 +27,7 @@ export async function render() {
     </div>
   ` : '';
 
-  return `
+  return renderLayout(`
     <div style="margin-top: 20px;">
       <h1>Settings</h1>
       <p style="color: var(--text-secondary); margin-bottom: 24px;">Manage your preferences and data.</p>
@@ -60,12 +61,8 @@ export async function render() {
           Delete Account & Data
         </button>
       </div>
-      
-      <a href="#/dashboard" style="display: block; text-align: center; margin-top: 24px; color: var(--blue-600); text-decoration: none; font-weight: 600;">
-        &larr; Back to Dashboard
-      </a>
     </div>
-  `;
+  `, 'settings');
 }
 
 export function init() {
