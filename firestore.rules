@@ -72,6 +72,12 @@ service cloud.firestore {
       allow update, delete: if isPatient() && resource.data.patientId == request.auth.uid;
     }
 
+    match /medicationLogs/{logId} {
+      allow create: if isPatient() && request.resource.data.patientId == request.auth.uid;
+      allow read: if canReadPatientData(resource.data.patientId);
+      allow update, delete: if isPatient() && resource.data.patientId == request.auth.uid;
+    }
+
     match /metricLogs/{entryId} {
       allow create: if (isPatient() && request.resource.data.patientId == request.auth.uid) ||
                        (isDoctor() && isAssignedDoctor(request.resource.data.patientId));
