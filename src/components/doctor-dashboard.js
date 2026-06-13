@@ -28,6 +28,7 @@ export async function render() {
         <a class="brand" href="#/doctor-dashboard"><span class="brand-mark">H</span><span>Healthi Clinical</span></a>
         <div class="doctor-header-actions">
           <div><strong>${doctor?.name || 'Doctor'}</strong><div class="muted">${doctor?.specialty || 'Healthcare professional'}</div></div>
+          ${patients.length === 0 ? '<button id="delete-doctor-btn" class="btn" style="background-color: #ef4444; color: white;">Delete Account</button>' : ''}
           <button id="logout-btn" class="btn btn-secondary">Sign out</button>
         </div>
       </header>
@@ -247,6 +248,22 @@ export function init() {
     await clearAllData();
     window.location.hash = '#/auth';
     window.dispatchEvent(new Event('healthi-session-change'));
+  });
+
+  document.getElementById('delete-doctor-btn')?.addEventListener('click', async () => {
+    const confirmDelete = confirm("Are you sure you want to PERMANENTLY delete your account? This cannot be undone.");
+    if (confirmDelete) {
+      try {
+        await import('../services/storage.js').then(m => m.deleteAccount());
+        window.location.hash = '#/auth';
+      } catch (err) {
+        if (err.code === 'auth/requires-recent-login') {
+           alert('For security reasons, you must log out and log back in before deleting your account.');
+        } else {
+           alert('Failed to delete account: ' + err.message);
+        }
+      }
+    }
   });
 
   document.getElementById('link-patient-btn')?.addEventListener('click', async () => {
