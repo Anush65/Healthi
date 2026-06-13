@@ -1,4 +1,4 @@
-import { getLogs } from '../services/storage.js';
+import { getLogs, saveInsight } from '../services/storage.js';
 import { getPredictiveInsights } from '../services/gemini.js';
 
 export async function render() {
@@ -49,6 +49,7 @@ export async function init() {
     const recentLogs = logs.slice(0, 14);
     
     const insightText = await getPredictiveInsights(recentLogs);
+    await saveInsight(insightText);
     
     container.innerHTML = `
       <div>
