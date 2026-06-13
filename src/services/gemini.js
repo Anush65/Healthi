@@ -36,13 +36,20 @@ async function generateWithFallback(prompt) {
  */
 export async function parseWellnessLog(text) {
   if (!apiKey) {
-    console.warn("VITE_GEMINI_API_KEY is missing. Using mock data.");
+    const lower = text.toLowerCase();
+    const knownSymptoms = ['headache', 'fever', 'dizziness', 'nausea', 'cough', 'fatigue', 'pain', 'ache'];
+    const symptoms = knownSymptoms.filter((symptom) => lower.includes(symptom));
+    const sleepMatch = lower.match(/(\d+)\s*(hours?|hrs?)/);
+    const severity = /(severe|very bad|intense|unbearable)/.test(lower)
+      ? 'high'
+      : /(mild|little|brief|slight)/.test(lower) ? 'low' : symptoms.length ? 'medium' : 'low';
     return {
-      symptoms: ["simulated symptom"],
-      sleep: "simulated sleep",
-      diet_notes: "simulated diet",
-      severity: "low",
-      summary: "Simulated summary of: " + text
+      symptoms,
+      sleep: sleepMatch ? `${sleepMatch[1]} hours mentioned` : lower.includes('sleep') ? 'Sleep mentioned' : 'Not mentioned',
+      hydration: lower.includes('water') || lower.includes('hydration') ? 'Mentioned' : 'Not mentioned',
+      diet_notes: lower.includes('breakfast') ? 'Breakfast mentioned' : 'Not mentioned',
+      severity,
+      summary: text.length > 86 ? `${text.slice(0, 83)}...` : text
     };
   }
 

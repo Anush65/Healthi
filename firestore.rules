@@ -1,0 +1,108 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isDoctor() {
+      return signedIn() && userData().role == "doctor";
+    }
+
+    function isPatient() {
+      return signedIn() && userData().role == "patient";
+    }
+
+    function isAssignedDoctor(patientId) {
+      return isDoctor() &&
+        exists(/databases/$(database)/documents/doctorAssignments/$(request.auth.uid + "_" + patientId));
+    }
+
+    function canReadPatientData(patientId) {
+      return signedIn() && (request.auth.uid == patientId || isAssignedDoctor(patientId));
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow read: if signedIn() && (
+        request.auth.uid == userId ||
+        (isDoctor() && isAssignedDoctor(userId))
+      );
+      allow update, delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /patientCodes/{code} {
+      allow create: if isPatient() &&
+        request.resource.data.patientId == request.auth.uid;
+      allow update: if isPatient() &&
+        resource.data.patientId == request.auth.uid &&
+        request.resource.data.patientId == request.auth.uid;
+      allow delete: if isPatient() &&
+        resource.data.patientId == request.auth.uid;
+      allow get: if isDoctor();
+      allow list: if false;
+    }
+
+    match /doctorAssignments/{assignmentId} {
+      allow create: if isDoctor() &&
+        request.resource.data.doctorId == request.auth.uid &&
+        assignmentId == request.auth.uid + "_" + request.resource.data.patientId &&
+        request.resource.data.patientCode is string &&
+        get(/databases/$(database)/documents/patientCodes/$(request.resource.data.patientCode)).data.patientId
+          == request.resource.data.patientId;
+      allow read: if signedIn() && (
+        resource.data.doctorId == request.auth.uid ||
+        resource.data.patientId == request.auth.uid
+      );
+      allow delete: if signedIn() && (
+        resource.data.doctorId == request.auth.uid ||
+        resource.data.patientId == request.auth.uid
+      );
+      allow update: if false;
+    }
+
+    match /healthEntries/{entryId} {
+      allow create: if isPatient() && request.resource.data.patientId == request.auth.uid;
+      allow read: if canReadPatientData(resource.data.patientId);
+      allow update, delete: if isPatient() && resource.data.patientId == request.auth.uid;
+    }
+
+    match /metricLogs/{entryId} {
+      allow create: if isPatient() && request.resource.data.patientId == request.auth.uid;
+      allow read: if canReadPatientData(resource.data.patientId);
+      allow update, delete: if isPatient() && resource.data.patientId == request.auth.uid;
+    }
+
+    match /appointments/{appointmentId} {
+      allow create: if isDoctor() && isAssignedDoctor(request.resource.data.patientId);
+      allow read: if canReadPatientData(resource.data.patientId);
+      allow update: if (
+        isDoctor() && isAssignedDoctor(resource.data.patientId)
+      ) || (
+        isPatient() &&
+        resource.data.patientId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["scheduledDate", "status", "updatedAt"])
+      );
+      allow delete: if signedIn() && (
+        (isDoctor() && isAssignedDoctor(resource.data.patientId)) ||
+        resource.data.patientId == request.auth.uid
+      );
+    }
+
+    match /doctorVisits/{visitId} {
+      allow create: if isDoctor() && isAssignedDoctor(request.resource.data.patientId);
+      allow read: if canReadPatientData(resource.data.patientId);
+      allow update: if isDoctor() && isAssignedDoctor(resource.data.patientId);
+      allow delete: if signedIn() && (
+        (isDoctor() && isAssignedDoctor(resource.data.patientId)) ||
+        resource.data.patientId == request.auth.uid
+      );
+    }
+  }
+}
