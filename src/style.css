@@ -149,3 +149,25 @@ button {
   from { opacity: 0; transform: translateY(-20px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Print Styles */
+@media print {
+  .no-print, .bottom-nav {
+    display: none !important;
+  }
+  
+  body {
+    background-color: white;
+    color: black;
+  }
+  
+  .card {
+    box-shadow: none;
+    border: none;
+    padding: 0;
+  }
+  
+  #app {
+    padding: 0;
+  }
+}
