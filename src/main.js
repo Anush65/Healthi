@@ -10,12 +10,21 @@ const routes = {
   'settings': () => import('./components/settings.js')
 };
 
+import { getProfile } from './services/storage.js';
+
 async function router() {
   const app = document.getElementById('app');
   let hash = window.location.hash.replace('#/', '') || 'dashboard';
   
   if (window.location.hash === '' || window.location.hash === '#') {
     hash = 'dashboard';
+  }
+
+  // Check onboarding status
+  const profile = await getProfile();
+  if (!profile && hash !== 'onboarding') {
+    window.location.hash = '#/onboarding';
+    return;
   }
 
   const loadModule = routes[hash] || routes['dashboard'];
