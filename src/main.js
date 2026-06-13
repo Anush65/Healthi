@@ -1,4 +1,7 @@
 import './style.css';
+import { auth } from './services/firebase.js';
+import { onAuthStateChanged } from 'firebase/auth';
+import { getProfile } from './services/storage.js';
 
 const routes = {
   '': () => import('./components/dashboard.js'),
@@ -7,10 +10,10 @@ const routes = {
   'log': () => import('./components/quiz.js'),
   'insights': () => import('./components/insights.js'),
   'export': () => import('./components/export.js'),
-  'settings': () => import('./components/settings.js')
+  'settings': () => import('./components/settings.js'),
+  'auth': () => import('./components/auth.js'),
+  'doctor-dashboard': () => import('./components/doctor-dashboard.js')
 };
-
-import { getProfile } from './services/storage.js';
 
 async function router() {
   const app = document.getElementById('app');
@@ -20,11 +23,34 @@ async function router() {
     hash = 'dashboard';
   }
 
-  // Check onboarding status
-  const profile = await getProfile();
-  if (!profile && hash !== 'onboarding') {
-    window.location.hash = '#/onboarding';
+  const user = auth.currentUser;
+  
+  if (!user && hash !== 'auth') {
+    window.location.hash = '#/auth';
     return;
+  }
+  
+  if (user && hash === 'auth') {
+    window.location.hash = '#/dashboard';
+    return;
+  }
+
+  // Check onboarding status and roles
+  if (user && hash !== 'auth') {
+    try {
+      const profile = await getProfile();
+      if (profile && profile.role === 'doctor' && hash !== 'doctor-dashboard') {
+        window.location.hash = '#/doctor-dashboard';
+        return;
+      }
+      
+      if (profile && profile.role !== 'doctor' && !profile.onboardingComplete && hash !== 'onboarding') {
+        window.location.hash = '#/onboarding';
+        return;
+      }
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   const loadModule = routes[hash] || routes['dashboard'];
@@ -45,5 +71,15 @@ async function router() {
   }
 }
 
+// Wait for Firebase Auth to initialize before first route
+let isFirstLoad = true;
+onAuthStateChanged(auth, (user) => {
+  if (isFirstLoad) {
+    isFirstLoad = false;
+    router();
+  } else {
+    router();
+  }
+});
+
 window.addEventListener('hashchange', router);
-window.addEventListener('load', router);

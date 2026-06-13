@@ -4,9 +4,8 @@ import Chart from 'chart.js/auto';
 export async function render() {
   return `
     <div style="margin-top: 20px; margin-bottom: 24px;" class="no-print">
-      <h1>Doctor Export</h1>
-      <p style="color: var(--text-secondary);">A clean, printer-friendly view of your health history.</p>
-      <button id="print-btn" class="btn-primary" style="margin-top: 16px; padding: 12px 24px;">Print / Save PDF</button>
+      <h1>Health Export</h1>
+      <p style="color: var(--text-secondary);">A clean view of your health history.</p>
     </div>
 
     <div id="print-area" class="card" style="border: none; box-shadow: none;">
@@ -52,10 +51,6 @@ function getBottomNav() {
 }
 
 export async function init() {
-  document.getElementById('print-btn').addEventListener('click', () => {
-    window.print();
-  });
-
   const profile = await getProfile();
   const logs = await getLogs();
   
