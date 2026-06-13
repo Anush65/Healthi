@@ -1,4 +1,4 @@
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signInWithRedirect } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseConfigured } from '../services/firebase.js';
 import { createUserProfile } from '../services/storage.js';
@@ -37,10 +37,25 @@ export function init() {
     const button = event.currentTarget;
     button.disabled = true;
     button.textContent = 'Signing in...';
+    const provider = new GoogleAuthProvider();
+    // Use a timeout so the UI doesn't hang indefinitely if the popup is blocked
+    const popupPromise = signInWithPopup(auth, provider);
+    const timeoutMs = 20000;
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('popup_timeout')), timeoutMs));
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      await Promise.race([popupPromise, timeoutPromise]);
     } catch (error) {
-      showToast(error.message);
+      if (error && error.message === 'popup_timeout') {
+        showToast('Sign-in popup timed out — attempting redirect flow.');
+        try {
+          await signInWithRedirect(auth, provider);
+          return; // redirect will navigate away
+        } catch (errRedirect) {
+          showToast(errRedirect.message || 'Redirect sign-in failed');
+        }
+      } else {
+        showToast(error.message || error.code || 'Sign-in failed');
+      }
       button.disabled = false;
       button.textContent = 'Sign in with Google';
     }
