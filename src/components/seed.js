@@ -7,8 +7,8 @@ export async function render() {
       <div class="card" style="text-align: center; max-width: 400px; margin: 0 auto;">
         <div class="brand-mark" style="margin: 0 auto 16px;">H</div>
         <h2>Seed patient data</h2>
-        <p class="muted" style="margin-bottom: 24px;">This will generate 14 days of realistic health logs and condition metrics for your current patient profile. This operation cannot be undone easily.</p>
-        <button id="run-seed-btn" class="btn btn-primary" style="width: 100%;">Generate 14-day history</button>
+        <p class="muted" style="margin-bottom: 24px;">This will generate a cohesive 5-week story of health logs and condition metrics for your current patient profile. This operation cannot be undone easily.</p>
+        <button id="run-seed-btn" class="btn btn-primary" style="width: 100%;">Generate 5-week history</button>
         <p id="seed-message" class="form-message" style="margin-top: 16px;"></p>
       </div>
     </main>
@@ -30,7 +30,7 @@ export function init() {
 
       msg.className = 'form-message success-message';
       msg.textContent = 'Data seeded successfully! Redirecting to dashboard...';
-      showToast('Seeded 14 days of history.');
+      showToast('Seeded 5 weeks of history.');
       
       setTimeout(() => {
         window.location.hash = '#/dashboard';
@@ -43,4 +43,9 @@ export function init() {
       btn.textContent = 'Try again';
     }
   });
+
+  // Automatically trigger the seed process so the user doesn't have to click
+  setTimeout(() => {
+    if (!btn.disabled) btn.click();
+  }, 300);
 }
