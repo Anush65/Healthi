@@ -3,12 +3,20 @@ import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { showToast } from '../utils/toast.js';
 
-let pendingUser = null;
-
 export async function render() {
+  const user = auth.currentUser;
+  let showRole = false;
+  
+  if (user) {
+    const docRef = await getDoc(doc(db, "users", user.uid));
+    if (!docRef.exists()) {
+      showRole = true;
+    }
+  }
+
   return `
     <div style="margin-top: 40px; animation: slideDown 0.4s ease-out; max-width: 400px; margin-left: auto; margin-right: auto;">
-      <div class="card" id="auth-card">
+      <div class="card" id="auth-card" style="display: ${showRole ? 'none' : 'block'};">
         <h2 style="text-align: center; margin-bottom: 24px;">Welcome to Healthi</h2>
         <p style="text-align: center; color: var(--text-secondary); margin-bottom: 24px;">
           Please sign in to access your dashboard.
@@ -25,7 +33,7 @@ export async function render() {
         </button>
       </div>
 
-      <div class="card" id="role-card" style="display: none;">
+      <div class="card" id="role-card" style="display: ${showRole ? 'block' : 'none'};">
         <h2 style="text-align: center; margin-bottom: 24px;">Complete Registration</h2>
         <p style="text-align: center; color: var(--text-secondary); margin-bottom: 24px;">
           Are you setting up this account as a Patient or a Doctor?
@@ -52,67 +60,58 @@ export async function render() {
 
 export function init() {
   const googleBtn = document.getElementById('google-btn');
-  const authCard = document.getElementById('auth-card');
-  const roleCard = document.getElementById('role-card');
   const roleForm = document.getElementById('role-form');
   const submitRoleBtn = document.getElementById('submit-role-btn');
 
-  googleBtn.addEventListener('click', async () => {
-    try {
-      googleBtn.disabled = true;
-      googleBtn.style.opacity = '0.5';
-      
-      const provider = new GoogleAuthProvider();
-      const userCredential = await signInWithPopup(auth, provider);
-      const user = userCredential.user;
-      
-      const docRef = await getDoc(doc(db, "users", user.uid));
-      
-      if (docRef.exists()) {
-        const role = docRef.data().role;
+  if (googleBtn) {
+    googleBtn.addEventListener('click', async () => {
+      try {
+        googleBtn.disabled = true;
+        googleBtn.style.opacity = '0.5';
+        showToast('Opening Google Sign-In...');
+        
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+        // onAuthStateChanged in main.js handles the rest
+      } catch (err) {
+        console.error(err);
+        showToast('Error: ' + err.message, 5000);
+        googleBtn.disabled = false;
+        googleBtn.style.opacity = '1';
+      }
+    });
+  }
+
+  if (roleForm) {
+    roleForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        submitRoleBtn.disabled = true;
+        submitRoleBtn.style.opacity = '0.5';
+
+        const role = document.querySelector('input[name="role"]:checked').value;
+        
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          role: role,
+          createdAt: new Date().toISOString(),
+          onboardingComplete: false
+        });
+        
+        // Force router navigation
         if (role === 'doctor') {
           window.location.hash = '#/doctor-dashboard';
         } else {
-          window.location.hash = '#/dashboard';
+          window.location.hash = '#/onboarding';
         }
-      } else {
-        pendingUser = user;
-        authCard.style.display = 'none';
-        roleCard.style.display = 'block';
+      } catch (err) {
+        showToast(err.message);
+        submitRoleBtn.disabled = false;
+        submitRoleBtn.style.opacity = '1';
       }
-    } catch (err) {
-      showToast(err.message);
-      googleBtn.disabled = false;
-      googleBtn.style.opacity = '1';
-    }
-  });
-
-  roleForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!pendingUser) return;
-
-    try {
-      submitRoleBtn.disabled = true;
-      submitRoleBtn.style.opacity = '0.5';
-
-      const role = document.querySelector('input[name="role"]:checked').value;
-      
-      await setDoc(doc(db, "users", pendingUser.uid), {
-        email: pendingUser.email,
-        role: role,
-        createdAt: new Date().toISOString(),
-        onboardingComplete: false
-      });
-      
-      if (role === 'doctor') {
-        window.location.hash = '#/doctor-dashboard';
-      } else {
-        window.location.hash = '#/onboarding';
-      }
-    } catch (err) {
-      showToast(err.message);
-      submitRoleBtn.disabled = false;
-      submitRoleBtn.style.opacity = '1';
-    }
-  });
+    });
+  }
 }

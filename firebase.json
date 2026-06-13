@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "healthi",
     "public": "dist",
     "ignore": [
       "firebase.json",

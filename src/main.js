@@ -29,24 +29,41 @@ async function router() {
     window.location.hash = '#/auth';
     return;
   }
-  
-  if (user && hash === 'auth') {
-    window.location.hash = '#/dashboard';
-    return;
-  }
 
   // Check onboarding status and roles
-  if (user && hash !== 'auth') {
+  if (user) {
     try {
       const profile = await getProfile();
-      if (profile && profile.role === 'doctor' && hash !== 'doctor-dashboard') {
-        window.location.hash = '#/doctor-dashboard';
-        return;
-      }
       
-      if (profile && profile.role !== 'doctor' && !profile.onboardingComplete && hash !== 'onboarding') {
-        window.location.hash = '#/onboarding';
-        return;
+      if (!profile) {
+        // Logged in but no profile -> must pick role on auth page
+        if (hash !== 'auth') {
+          window.location.hash = '#/auth';
+          return;
+        }
+      } else {
+        // Profile exists
+        if (hash === 'auth') {
+           window.location.hash = profile.role === 'doctor' ? '#/doctor-dashboard' : '#/dashboard';
+           return;
+        }
+
+        if (profile.role === 'doctor') {
+           if (hash === 'dashboard' || hash === 'onboarding' || hash === 'log' || hash === 'insights') {
+             window.location.hash = '#/doctor-dashboard';
+             return;
+           }
+        } else {
+           // Patient flow
+           if (!profile.onboardingComplete && hash !== 'onboarding') {
+             window.location.hash = '#/onboarding';
+             return;
+           }
+           if (profile.onboardingComplete && hash === 'onboarding') {
+             window.location.hash = '#/dashboard';
+             return;
+           }
+        }
       }
     } catch (err) {
       console.error(err);
