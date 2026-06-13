@@ -1,7 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Support both possible env names and use Vite's import.meta.env
-const apiKey = import.meta?.env?.VITE_HealthiApiKey || import.meta?.env?.VITE_HealthApiKey;
+// Prefer Vite-exposed env vars (must start with VITE_). Support both the
+// original `VITE_GEMINI_API_KEY` and the new `VITE_HealthiApiKey` name.
+// As a last resort allow runtime injection via `window.__HEALTHI_API_KEY`.
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+  || import.meta.env.VITE_HealthiApiKey
+  || import.meta.env.HealthiApiKey
+  || (typeof window !== 'undefined' ? window.__HEALTHI_API_KEY : null);
 let genAI = null;
 
 async function generateWithFallback(prompt) {
