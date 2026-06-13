@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   addAppointment,
   addLog,
+  addMetricLog,
   addVisit,
   clearAllData,
   getAppointments,
   getLogs,
+  getMetricLogs,
   getProfile,
   getVisits,
   setProfile,
@@ -32,6 +34,14 @@ describe('Healthi storage service', () => {
     const logs = await getLogs();
     expect(logs).toHaveLength(initialCount + 1);
     expect(logs.at(-1).patientId).toBe('demo-patient');
+  });
+
+  it('adds structured metric readings', async () => {
+    const initialCount = (await getMetricLogs()).length;
+    await addMetricLog({ condition: 'hypertension', metrics: { systolic: 120, diastolic: 80 } });
+    const readings = await getMetricLogs();
+    expect(readings).toHaveLength(initialCount + 1);
+    expect(readings.at(-1).metrics.systolic).toBe(120);
   });
 
   it('shares appointments and visit plans across roles', async () => {

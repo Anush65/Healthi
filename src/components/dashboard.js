@@ -1,4 +1,5 @@
-import { getAppointments, getLogs, getMetricLogs, getProfile, getVisits, updateAppointment } from '../services/storage.js';
+import { addMetricLog, getAppointments, getLogs, getMetricLogs, getProfile, getVisits, updateAppointment } from '../services/storage.js';
+import { getConditionConfig } from '../config/conditions.js';
 import { showToast } from '../utils/toast.js';
 
 const icon = (name) => {
@@ -21,12 +22,67 @@ function nav() {
   </nav>`;
 }
 
+function renderReadingForms(profile) {
+  const conditions = (profile?.conditions || [])
+    .map((condition) => getConditionConfig(condition))
+    .filter(Boolean);
+
+  if (!conditions.length) {
+    return '<p class="muted">Add diabetes or hypertension in onboarding/settings to log structured readings.</p>';
+  }
+
+  return conditions.map((condition) => `
+    <form class="reading-form form-grid" data-condition="${condition.id}" style="margin-top:14px">
+      <div class="field full"><strong>${condition.name} reading</strong><p class="muted">${condition.description}</p></div>
+      ${condition.metrics.map((metric) => `
+        <div class="field">
+          <label for="${condition.id}-${metric.id}">${metric.label}</label>
+          <input id="${condition.id}-${metric.id}" name="${metric.id}" type="${metric.type}" min="0" placeholder="${metric.placeholder}" required>
+        </div>
+      `).join('')}
+      <div class="field"><button class="btn btn-primary" type="submit">Save reading</button></div>
+    </form>
+  `).join('');
+}
+
+function renderDoctorCare(visits, appointments) {
+  const sortedVisits = [...visits].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const sortedAppointments = [...appointments].sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
+
+  return `
+    <section class="section-block">
+      <div class="section-heading"><div><p class="eyebrow">Shared by your doctor</p><h2>Care updates</h2></div></div>
+      <div class="care-grid">
+        <article class="doctor-note card">
+          <p class="eyebrow">Latest recommendation</p>
+          ${sortedVisits[0] ? `
+            <h3>${sortedVisits[0].recommendations || sortedVisits[0].diagnosis || 'Follow-up review'}</h3>
+            <p>${sortedVisits[0].doctorNotes || sortedVisits[0].diagnosis || ''}</p>
+            <div class="tag-row">
+              ${(sortedVisits[0].prescriptions || []).map((item) => `<span>${item.medicine} ${item.dosage || ''}</span>`).join('')}
+              ${(sortedVisits[0].testsOrdered || []).map((item) => `<span>Test: ${item.name}</span>`).join('')}
+            </div>
+          ` : '<p class="muted">No doctor recommendations yet.</p>'}
+        </article>
+        <article class="doctor-note card">
+          <p class="eyebrow">Appointments</p>
+          ${sortedAppointments.length ? sortedAppointments.map((appointment) => `
+            <div style="margin-top:12px">
+              <h3>${appointment.doctorName || 'Your doctor'}</h3>
+              <p>${new Date(appointment.scheduledDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} · ${appointment.reason || 'Clinical follow-up'} · ${appointment.status || 'scheduled'}</p>
+            </div>
+          `).join('') : '<p class="muted">No appointments shared yet.</p>'}
+        </article>
+      </div>
+    </section>`;
+}
+
 export async function render() {
   const [profile, logs, metrics, appointments, visits] = await Promise.all([
     getProfile(), getLogs(), getMetricLogs(), getAppointments(), getVisits()
   ]);
   const nextAppointment = appointments
-    .filter((item) => item.status === 'scheduled')
+    .filter((item) => ['scheduled', 'rescheduled'].includes(item.status))
     .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))[0];
   const latestVisit = visits.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
   const recentLogs = logs.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -88,7 +144,13 @@ export async function render() {
               ` : '<p class="muted">No upcoming appointments.</p>'}
             </article>
           </div>
+          <div class="action-form">
+            <div class="section-heading"><div><p class="eyebrow">Readings</p><h2>Add a reading</h2></div></div>
+            ${renderReadingForms(profile)}
+          </div>
         </section>
+
+        ${renderDoctorCare(visits, appointments)}
 
         <section class="content-grid">
           <div>
@@ -128,12 +190,24 @@ export async function render() {
 }
 
 export function init() {
+  document.querySelectorAll('.reading-form').forEach((form) => {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const metrics = Object.fromEntries(
+        Array.from(new FormData(form).entries()).map(([key, value]) => [key, Number(value)])
+      );
+      await addMetricLog({ condition: form.dataset.condition, metrics });
+      showToast('Reading saved.');
+      window.dispatchEvent(new Event('hashchange'));
+    });
+  });
+
   document.getElementById('reschedule-btn')?.addEventListener('click', async (event) => {
     const date = new Date();
     date.setDate(date.getDate() + 7);
     date.setHours(10, 0, 0, 0);
-    await updateAppointment(event.currentTarget.dataset.id, { scheduledDate: date.toISOString(), status: 'rescheduled' });
+    await updateAppointment(event.currentTarget.dataset.id, { scheduledDate: date.toISOString(), status: 'scheduled' });
     showToast('Appointment moved to next week.');
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    window.dispatchEvent(new Event('hashchange'));
   });
 }

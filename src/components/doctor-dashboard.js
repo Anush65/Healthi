@@ -72,6 +72,8 @@ async function renderPatient(patientId) {
   ]);
   const latestBp = metrics.filter((item) => item.condition === 'hypertension').at(-1);
   const latestSugar = metrics.filter((item) => item.condition === 'diabetes').at(-1);
+  const sortedAppointments = [...appointments].sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
+  const nextAppointment = sortedAppointments.filter(a => new Date(a.scheduledDate) >= new Date())[0] || sortedAppointments.at(-1);
 
   if (!profile) {
     return `
@@ -101,7 +103,11 @@ async function renderPatient(patientId) {
         <article class="clinical-card"><p class="eyebrow">Blood pressure</p><h3>${latestBp ? `${latestBp.metrics.systolic}/${latestBp.metrics.diastolic} mmHg` : 'No reading'}</h3><p>Latest recorded reading</p></article>
         <article class="clinical-card"><p class="eyebrow">Blood sugar</p><h3>${latestSugar ? `${latestSugar.metrics.blood_sugar} mg/dL` : 'No reading'}</h3><p>Latest recorded reading</p></article>
         <article class="clinical-card"><p class="eyebrow">Recent symptom</p><h3>${logs[0]?.parsed_data.summary || 'No recent symptoms'}</h3><p>${logs[0] ? new Date(logs[0].date).toLocaleDateString() : ''}</p></article>
-        <article class="clinical-card"><p class="eyebrow">Next appointment</p><h3>${appointments[0] ? new Date(appointments[0].scheduledDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Not scheduled'}</h3><p>${appointments[0]?.reason || 'Create a follow-up below'}</p></article>
+        <article class="clinical-card"><p class="eyebrow">Next appointment</p><h3>${nextAppointment ? new Date(nextAppointment.scheduledDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Not scheduled'}</h3><p>${nextAppointment?.reason || 'Create a follow-up below'}</p></article>
+      </div>
+      <div class="action-form">
+        <p class="eyebrow">Appointments</p>
+        ${renderAppointmentList(appointments)}
       </div>
     </section>
 
@@ -129,7 +135,23 @@ async function renderPatient(patientId) {
         <p class="eyebrow">Visit history</p>
         ${renderVisitHistory(visits)}
       </div>
+      <div class="action-form">
+        <p class="eyebrow">Appointments</p>
+        ${renderAppointmentList(appointments)}
+      </div>
     </section>`;
+}
+
+function renderAppointmentList(appointments) {
+  const sortedAppointments = [...appointments].sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
+  if (!sortedAppointments.length) return '<p class="muted">No appointments scheduled yet.</p>';
+
+  return sortedAppointments.map((appointment) => `
+    <article class="timeline-body" style="margin-top:12px">
+      <div class="timeline-meta"><span class="severity low">${appointment.status || 'scheduled'}</span><time>${new Date(appointment.scheduledDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</time></div>
+      <h3>${appointment.reason || 'Clinical follow-up'}</h3>
+      <p>${appointment.notes || 'No appointment notes.'}</p>
+    </article>`).join('');
 }
 
 function renderTimeline(logs, visits) {

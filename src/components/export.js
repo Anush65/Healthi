@@ -1,4 +1,4 @@
-import { getLogs, getProfile } from '../services/storage.js';
+import { getAppointments, getLogs, getMetricLogs, getProfile, getVisits } from '../services/storage.js';
 import Chart from 'chart.js/auto';
 
 export async function render() {
@@ -19,6 +19,15 @@ export async function render() {
       
       <h3 style="margin-bottom: 16px;">Chronological Log</h3>
       <div id="table-container"></div>
+
+      <h3 style="margin: 28px 0 16px;">Readings</h3>
+      <div id="readings-container"></div>
+
+      <h3 style="margin: 28px 0 16px;">Doctor Care Plan</h3>
+      <div id="care-container"></div>
+
+      <h3 style="margin: 28px 0 16px;">Appointments</h3>
+      <div id="appointments-container"></div>
     </div>
     
     <div class="no-print">
@@ -53,6 +62,9 @@ function getBottomNav() {
 export async function init() {
   const profile = await getProfile();
   const logs = await getLogs();
+  const metrics = await getMetricLogs();
+  const visits = await getVisits();
+  const appointments = await getAppointments();
   
   if (profile) {
     document.getElementById('patient-info').innerHTML = `
@@ -66,13 +78,14 @@ export async function init() {
   logs.sort((a, b) => new Date(a.date) - new Date(b.date));
   const recentLogs = logs.slice(-30); // Last 30 days
 
+
   // Chart setup
   const ctx = document.getElementById('severity-chart');
   if (ctx && recentLogs.length > 0) {
     const labels = recentLogs.map(l => new Date(l.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
     const dataPoints = recentLogs.map(l => {
-      if (l.parsed_data.severity === 'high') return 3;
-      if (l.parsed_data.severity === 'medium') return 2;
+      if (l.parsed_data?.severity === 'high') return 3;
+      if (l.parsed_data?.severity === 'medium') return 2;
       return 1;
     });
 
@@ -122,9 +135,9 @@ export async function init() {
     tableHtml += reversed.map(log => `
       <tr style="border-bottom: 1px solid var(--slate-200);">
         <td style="padding: 12px 8px; vertical-align: top; white-space: nowrap;">${new Date(log.date).toLocaleDateString()}</td>
-        <td style="padding: 12px 8px; vertical-align: top;">${log.parsed_data.summary || '-'}</td>
-        <td style="padding: 12px 8px; vertical-align: top;">${Array.isArray(log.parsed_data.symptoms) ? log.parsed_data.symptoms.join(', ') : '-'}</td>
-        <td style="padding: 12px 8px; vertical-align: top;">${log.parsed_data.sleep || '-'}</td>
+        <td style="padding: 12px 8px; vertical-align: top;">${log.parsed_data?.summary || '-'}</td>
+        <td style="padding: 12px 8px; vertical-align: top;">${Array.isArray(log.parsed_data?.symptoms) ? log.parsed_data.symptoms.join(', ') : '-'}</td>
+        <td style="padding: 12px 8px; vertical-align: top;">${log.parsed_data?.sleep || '-'}</td>
       </tr>
     `).join('');
     
@@ -133,4 +146,38 @@ export async function init() {
   } else {
     tableContainer.innerHTML = '<p>No entries to display.</p>';
   }
+
+  const readingsContainer = document.getElementById('readings-container');
+  readingsContainer.innerHTML = metrics.length ? `
+    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+      <thead><tr style="border-bottom: 2px solid var(--border-color);"><th style="padding: 8px;">Date</th><th style="padding: 8px;">Condition</th><th style="padding: 8px;">Reading</th></tr></thead>
+      <tbody>
+        ${[...metrics].sort((a, b) => new Date(b.date) - new Date(a.date)).map((item) => `
+          <tr style="border-bottom: 1px solid var(--slate-200);">
+            <td style="padding: 12px 8px;">${new Date(item.date).toLocaleDateString()}</td>
+            <td style="padding: 12px 8px;">${item.condition}</td>
+            <td style="padding: 12px 8px;">${Object.entries(item.metrics || {}).map(([key, value]) => `${key}: ${value}`).join(', ')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>` : '<p>No readings to display.</p>';
+
+  const careContainer = document.getElementById('care-container');
+  careContainer.innerHTML = visits.length ? [...visits].sort((a, b) => new Date(b.date) - new Date(a.date)).map((visit) => `
+    <div style="border-bottom: 1px solid var(--slate-200); padding: 12px 0;">
+      <p><strong>${new Date(visit.date).toLocaleDateString()}:</strong> ${visit.diagnosis || 'Clinical review'}</p>
+      <p>${visit.recommendations || ''}</p>
+      <p>${(visit.prescriptions || []).map((item) => `Medicine: ${item.medicine} ${item.dosage || ''}`).join(' · ')}</p>
+      <p>${(visit.testsOrdered || []).map((item) => `Test: ${item.name}`).join(' · ')}</p>
+    </div>
+  `).join('') : '<p>No doctor care plans to display.</p>';
+
+  const appointmentsContainer = document.getElementById('appointments-container');
+  appointmentsContainer.innerHTML = appointments.length ? [...appointments].sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate)).map((appointment) => `
+    <div style="border-bottom: 1px solid var(--slate-200); padding: 12px 0;">
+      <p><strong>${new Date(appointment.scheduledDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</strong></p>
+      <p>${appointment.doctorName || 'Your doctor'} · ${appointment.reason || 'Clinical follow-up'} · ${appointment.status || 'scheduled'}</p>
+      <p>${appointment.notes || ''}</p>
+    </div>
+  `).join('') : '<p>No appointments to display.</p>';
 }
