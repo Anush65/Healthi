@@ -156,14 +156,14 @@ export async function render() {
           <div>
             <div class="section-heading"><div><p class="eyebrow">Health ledger</p><h2>Your recent story</h2></div><a href="#/export">View report</a></div>
             <div class="timeline">
-              ${recentLogs.map((log) => `
+          ${recentLogs.map((log) => `
                 <article class="timeline-item">
                   <div class="timeline-date"><strong>${new Date(log.date).getDate()}</strong><span>${new Date(log.date).toLocaleDateString(undefined, { month: 'short' })}</span></div>
                   <div class="timeline-body">
-                    <div class="timeline-meta"><span class="severity ${log.parsed_data.severity}">${log.parsed_data.severity}</span><time>${new Date(log.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></div>
-                    <h3>${log.parsed_data.summary}</h3>
+                    <div class="timeline-meta"><span class="severity ${log.parsed_data?.severity || 'medium'}">${log.parsed_data?.severity || 'medium'}</span><time>${new Date(log.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></div>
+                    <h3>${log.parsed_data?.summary || log.raw_text.substring(0, 100)}</h3>
                     <p>${log.raw_text}</p>
-                    <div class="tag-row">${(log.parsed_data.symptoms || []).map((item) => `<span>${item}</span>`).join('')}${log.parsed_data.sleep ? `<span>Sleep: ${log.parsed_data.sleep}</span>` : ''}</div>
+                    <div class="tag-row">${(log.parsed_data?.symptoms || []).map((item) => `<span>${item}</span>`).join('')}${log.parsed_data?.sleep ? `<span>Sleep: ${log.parsed_data.sleep}</span>` : ''}</div>
                   </div>
                 </article>`).join('')}
             </div>
