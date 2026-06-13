@@ -36,21 +36,7 @@ async function generateWithFallback(prompt) {
  */
 export async function parseWellnessLog(text) {
   if (!apiKey) {
-    const lower = text.toLowerCase();
-    const knownSymptoms = ['headache', 'fever', 'dizziness', 'nausea', 'cough', 'fatigue', 'pain', 'ache'];
-    const symptoms = knownSymptoms.filter((symptom) => lower.includes(symptom));
-    const sleepMatch = lower.match(/(\d+)\s*(hours?|hrs?)/);
-    const severity = /(severe|very bad|intense|unbearable)/.test(lower)
-      ? 'high'
-      : /(mild|little|brief|slight)/.test(lower) ? 'low' : symptoms.length ? 'medium' : 'low';
-    return {
-      symptoms,
-      sleep: sleepMatch ? `${sleepMatch[1]} hours mentioned` : lower.includes('sleep') ? 'Sleep mentioned' : 'Not mentioned',
-      hydration: lower.includes('water') || lower.includes('hydration') ? 'Mentioned' : 'Not mentioned',
-      diet_notes: lower.includes('breakfast') ? 'Breakfast mentioned' : 'Not mentioned',
-      severity,
-      summary: text.length > 86 ? `${text.slice(0, 83)}...` : text
-    };
+    return parseWellnessLogLocally(text);
   }
 
   const prompt = `
@@ -75,7 +61,7 @@ export async function parseWellnessLog(text) {
     return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error parsing wellness log with Gemini:", error);
-    throw new Error("Failed to parse the log. Please try again.");
+    return parseWellnessLogLocally(text);
   }
 }
 
@@ -90,7 +76,7 @@ export async function getPredictiveInsights(historyData) {
   }
 
   if (!apiKey) {
-    return "Simulated Insight: We noticed you log data often. API key is missing to provide real insights.";
+    return getLocalPredictiveInsight(historyData);
   }
 
   const prompt = `
@@ -108,6 +94,62 @@ export async function getPredictiveInsights(historyData) {
     return result.response.text().trim();
   } catch (error) {
     console.error("Error generating insights with Gemini:", error);
-    return "We couldn't analyze your patterns today. Please check back later.";
+    return getLocalPredictiveInsight(historyData);
   }
+}
+
+function parseWellnessLogLocally(text) {
+  const lower = text.toLowerCase();
+  const knownSymptoms = [
+    'headache',
+    'fever',
+    'dizziness',
+    'nausea',
+    'cough',
+    'fatigue',
+    'pain',
+    'ache',
+    'tired',
+    'weakness',
+    'shortness of breath'
+  ];
+  const symptoms = knownSymptoms.filter((symptom) => lower.includes(symptom));
+  const sleepMatch = lower.match(/(\d+(?:\.\d+)?)\s*(hours?|hrs?|h)\b/);
+  const walkMatch = lower.match(/walk(?:ed|ing)?\s*(?:for)?\s*(\d+)\s*(minutes?|mins?)/);
+  const medicationMentioned = /(medicine|medication|tablet|pill|dose|took)/.test(lower);
+  const severity = /(severe|very bad|intense|unbearable|worst|emergency)/.test(lower)
+    ? 'high'
+    : /(mild|little|brief|slight|minor)/.test(lower) ? 'low' : symptoms.length ? 'medium' : 'low';
+
+  return {
+    symptoms,
+    sleep: sleepMatch ? `${sleepMatch[1]} hours mentioned` : lower.includes('sleep') ? 'Sleep mentioned' : 'Not mentioned',
+    hydration: lower.includes('water') || lower.includes('hydration') ? 'Mentioned' : 'Not mentioned',
+    diet_notes: /(breakfast|lunch|dinner|meal|food|ate|skipped)/.test(lower) ? 'Food or meal mentioned' : 'Not mentioned',
+    activity: walkMatch ? `Walked ${walkMatch[1]} ${walkMatch[2]}` : lower.includes('walk') ? 'Walking mentioned' : 'Not mentioned',
+    medication: medicationMentioned ? 'Medication mentioned' : 'Not mentioned',
+    severity,
+    summary: text.length > 86 ? `${text.slice(0, 83)}...` : text
+  };
+}
+
+function getLocalPredictiveInsight(historyData) {
+  const logs = historyData || [];
+  const poorSleepWithSymptoms = logs.filter((log) => {
+    const sleep = String(log.parsed_data?.sleep || log.sleep || '').toLowerCase();
+    const symptoms = log.parsed_data?.symptoms || log.symptoms || [];
+    return symptoms.length && (/([1-5])\s*hours?/.test(sleep) || sleep.includes('poor') || sleep.includes('restless'));
+  }).length;
+  const activeDays = logs.filter((log) => {
+    const text = `${log.raw_text || ''} ${log.parsed_data?.activity || log.activity || ''}`.toLowerCase();
+    return /walk|exercise|active|movement/.test(text);
+  }).length;
+
+  if (poorSleepWithSymptoms >= 2) {
+    return 'Several symptom logs happened after poor or short sleep. Keep logging sleep and symptoms so this pattern stays visible for your care team.';
+  }
+  if (activeDays >= 2) {
+    return 'Your recent logs mention movement on multiple days. Continue tracking activity alongside symptoms so Healthi can show clearer trends over time.';
+  }
+  return 'Healthi saved your recent logs and can still summarize patterns without the AI service. Keep logging sleep, symptoms, hydration, and medication to make future insights clearer.';
 }

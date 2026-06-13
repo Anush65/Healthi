@@ -193,21 +193,39 @@ export function init() {
   document.querySelectorAll('.reading-form').forEach((form) => {
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      const metrics = Object.fromEntries(
-        Array.from(new FormData(form).entries()).map(([key, value]) => [key, Number(value)])
-      );
-      await addMetricLog({ condition: form.dataset.condition, metrics });
-      showToast('Reading saved.');
-      window.dispatchEvent(new Event('hashchange'));
+      const button = form.querySelector('button[type="submit"]');
+      button.disabled = true;
+      button.textContent = 'Saving...';
+      try {
+        const metrics = Object.fromEntries(
+          Array.from(new FormData(form).entries()).map(([key, value]) => [key, Number(value)])
+        );
+        await addMetricLog({ condition: form.dataset.condition, metrics });
+        showToast('Reading saved.');
+        window.dispatchEvent(new Event('hashchange'));
+      } catch (error) {
+        showToast(error.message);
+        button.disabled = false;
+        button.textContent = 'Save reading';
+      }
     });
   });
 
   document.getElementById('reschedule-btn')?.addEventListener('click', async (event) => {
-    const date = new Date();
-    date.setDate(date.getDate() + 7);
-    date.setHours(10, 0, 0, 0);
-    await updateAppointment(event.currentTarget.dataset.id, { scheduledDate: date.toISOString(), status: 'scheduled' });
-    showToast('Appointment moved to next week.');
-    window.dispatchEvent(new Event('hashchange'));
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = 'Rescheduling...';
+    try {
+      const date = new Date();
+      date.setDate(date.getDate() + 7);
+      date.setHours(10, 0, 0, 0);
+      await updateAppointment(button.dataset.id, { scheduledDate: date.toISOString(), status: 'scheduled' });
+      showToast('Appointment moved to next week.');
+      window.dispatchEvent(new Event('hashchange'));
+    } catch (error) {
+      showToast(error.message);
+      button.disabled = false;
+      button.textContent = 'Reschedule';
+    }
   });
 }
