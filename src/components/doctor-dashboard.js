@@ -22,6 +22,36 @@ export async function render() {
   const patient = patients[0];
   selectedPatientId = patient?.id || 'demo-patient';
 
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  startOfWeek.setHours(0,0,0,0);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+  const oneWeekAgo = new Date(now);
+  oneWeekAgo.setDate(now.getDate() - 7);
+
+  let appointmentsThisWeekCount = 0;
+  let newHealthEntriesCount = 0;
+
+  if (patients.length > 0) {
+    await Promise.all(patients.map(async (p) => {
+      const [appointments, logs] = await Promise.all([
+        getAppointments(p.id),
+        getPatientLogs(p.id)
+      ]);
+      appointments.forEach(a => {
+        const d = new Date(a.scheduledDate);
+        if (d >= startOfWeek && d < endOfWeek) appointmentsThisWeekCount++;
+      });
+      logs.forEach(l => {
+        const d = new Date(l.date);
+        if (d >= oneWeekAgo) newHealthEntriesCount++;
+      });
+    }));
+  }
+
   return `
     <main class="doctor-shell">
       <header class="doctor-header">
@@ -39,8 +69,8 @@ export async function render() {
 
       <section class="doctor-overview">
         <article class="overview-card"><span>Active patients</span><strong>${patients.length}</strong></article>
-        <article class="overview-card"><span>Appointments this week</span><strong>3</strong></article>
-        <article class="overview-card"><span>New health entries</span><strong>2</strong></article>
+        <article class="overview-card"><span>Appointments this week</span><strong>${appointmentsThisWeekCount}</strong></article>
+        <article class="overview-card"><span>New health entries</span><strong>${newHealthEntriesCount}</strong></article>
       </section>
 
       <section class="doctor-grid">

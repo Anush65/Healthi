@@ -6,8 +6,10 @@
 - [x] in the logging page, we should have things for general health like mood, sleep quality, medicines taken, many more, these should be optional for the patient to track and should be easy to log through button clicking 
 - [x] patients should be able to make logs through three methods: the logging textbox, the button clicking general health stats under the log page, and they should be able to upload their disease-specific numbers by clicking the widgets on the dashboard 
 - [x] people who are logged in as doctors and don't have any patients should be able to delete their account because they may be patients who have selected the wrong option during onboarding
+- [x] make doctor dashboard's appointments this week and new health entries numbers accurate
 - [x] doctors should be able to make entries for medicines in a nice lil table and the table should display in the patient's dashboard as a checklist that they can check off every day
 - [x] temperature entry check? i think it doesn't work
 - [x] remove sleep column in chronological log, just merge that with symptoms if sleep is bad
 - [x] selecting from the quick log menu auto-scrolls up and inputs "undefined" into the text box (it still understands correctly but the description keeps saying The user reports poor mood, poor sleep quality, low appetite, low energy, and suboptimal hydration.
 undefinedundefinedundefinedundefinedundefined)
+- make doctor dashboard's appointments this week and new health entries numbers accurate
