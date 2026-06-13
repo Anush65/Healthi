@@ -6,5 +6,5 @@
 - [x] in the logging page, we should have things for general health like mood, sleep quality, medicines taken, many more, these should be optional for the patient to track and should be easy to log through button clicking 
 - [x] patients should be able to make logs through three methods: the logging textbox, the button clicking general health stats under the log page, and they should be able to upload their disease-specific numbers by clicking the widgets on the dashboard 
 - [x] people who are logged in as doctors and don't have any patients should be able to delete their account because they may be patients who have selected the wrong option during onboarding
-- doctors should be able to make entries for medicines in a nice lil table and the table should display in the patient's dashboard as a checklist that they can check off every day
+- [x] doctors should be able to make entries for medicines in a nice lil table and the table should display in the patient's dashboard as a checklist that they can check off every day
 - [x] temperature entry check? i think it doesn't work

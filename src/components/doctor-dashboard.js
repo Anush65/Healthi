@@ -140,8 +140,22 @@ async function renderPatient(patientId) {
           <div class="section-heading"><div><p class="eyebrow">Clinical action</p><h2>Update care plan</h2></div></div>
           <div class="form-grid">
             <div class="field"><label for="diagnosis">Assessment / diagnosis</label><input id="diagnosis" name="diagnosis" placeholder="e.g. Blood pressure improving"></div>
-            <div class="field"><label for="medicine">Medicine</label><input id="medicine" name="medicine" placeholder="e.g. Amlodipine 5mg"></div>
-            <div class="field"><label for="test">Test or procedure</label><input id="test" name="test" placeholder="e.g. HbA1c"></div>
+            <div class="field full" style="margin-top: 10px; padding: 16px; background: var(--sage); border-radius: 14px; border: 1px solid var(--line);">
+              <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 12px;">
+                <label style="margin: 0;">Medicines to track daily</label>
+                <button type="button" class="text-button" id="add-medicine-btn" style="padding: 0;">+ Add Medicine</button>
+              </div>
+              <div id="medicine-list" style="display:grid; gap:8px;">
+                ${(profile.medicines || []).map(med => `
+                  <div class="med-item" style="display:flex; gap:8px;">
+                    <input name="medicine_name[]" value="${med.name}" placeholder="Medicine name" style="flex:2" required>
+                    <input name="medicine_dosage[]" value="${med.instructions || ''}" placeholder="Dosage/Instructions" style="flex:1">
+                    <button type="button" class="btn btn-secondary" onclick="this.parentElement.remove()" style="min-height:auto; padding: 12px; color: var(--danger);">Remove</button>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="field full"><label for="test">Test or procedure</label><input id="test" name="test" placeholder="e.g. HbA1c"></div>
             <div class="field"><label for="appointment">Next appointment</label><input id="appointment" name="appointment" type="datetime-local"></div>
             <div class="field full"><label for="recommendation">Recommendation for patient</label><textarea id="recommendation" name="recommendation" rows="3" placeholder="Write a clear next step for the patient"></textarea></div>
             <div class="field full"><button class="btn btn-primary" type="submit">Save care plan & readings</button></div>
@@ -314,10 +328,25 @@ function bindPatientTabs() {
 }
 
 function bindClinicalForm() {
+  document.getElementById('add-medicine-btn')?.addEventListener('click', () => {
+    const list = document.getElementById('medicine-list');
+    const div = document.createElement('div');
+    div.className = 'med-item';
+    div.style.display = 'flex';
+    div.style.gap = '8px';
+    div.innerHTML = \`
+      <input name="medicine_name[]" placeholder="Medicine name" style="flex:2" required>
+      <input name="medicine_dosage[]" placeholder="Dosage/Instructions" style="flex:1">
+      <button type="button" class="btn btn-secondary" onclick="this.parentElement.remove()" style="min-height:auto; padding: 12px; color: var(--danger);">Remove</button>
+    \`;
+    list.appendChild(div);
+  });
+
   document.getElementById('clinical-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
-      const data = Object.fromEntries(new FormData(event.currentTarget));
+      const formData = new FormData(event.currentTarget);
+      const data = Object.fromEntries(formData);
 
       const metricGroups = {};
       for (const key in data) {
@@ -337,7 +366,19 @@ function bindClinicalForm() {
       });
       await Promise.all(metricPromises);
 
-      const prescriptions = data.medicine ? [{ medicine: data.medicine, dosage: '', frequency: '', duration: '' }] : [];
+      const medNames = formData.getAll('medicine_name[]');
+      const medDosages = formData.getAll('medicine_dosage[]');
+      
+      const medicines = medNames.map((name, i) => ({
+        id: name.replace(/\\s+/g, '').toLowerCase() + Date.now().toString().slice(-4),
+        name,
+        instructions: medDosages[i] || ''
+      })).filter(m => m.name.trim());
+      
+      // Update patient profile with new medicines
+      await import('../services/storage.js').then(m => m.setProfile({ id: selectedPatientId, medicines, role: 'patient' }));
+
+      const prescriptions = medicines.map(m => ({ medicine: m.name, dosage: m.instructions, frequency: 'Daily tracking', duration: '' }));
       const testsOrdered = data.test ? [{ name: data.test, description: '', status: 'pending' }] : [];
 
       await addVisit({

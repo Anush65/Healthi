@@ -455,6 +455,42 @@ export async function getPatientMetricLogs(patientUid) {
   return snapshotToArray(await getDocs(q)).sort((a, b) => new Date(a.date) - new Date(b.date));
 }
 
+export async function toggleMedicationLog(patientId, medicineName, dateStr, taken) {
+  const resolvedPatientId = patientId || (isDemoMode ? 'demo-patient' : auth.currentUser?.uid);
+  if (!resolvedPatientId) throw new Error('Not authenticated');
+
+  if (isDemoMode) {
+    const store = readStore();
+    store.medicationLogs = store.medicationLogs || [];
+    if (taken) {
+      store.medicationLogs.push({ patientId: resolvedPatientId, medicineName, dateStr });
+    } else {
+      store.medicationLogs = store.medicationLogs.filter(l => !(l.patientId === resolvedPatientId && l.medicineName === medicineName && l.dateStr === dateStr));
+    }
+    writeStore(store);
+    return;
+  }
+  const docId = `${resolvedPatientId}_${dateStr}_${medicineName.replace(/[^a-zA-Z0-9]/g, '')}`;
+  const docRef = doc(db, 'medicationLogs', docId);
+  if (taken) {
+    await setDoc(docRef, { patientId: resolvedPatientId, medicineName, dateStr, createdAt: serverTimestamp() });
+  } else {
+    await deleteDoc(docRef);
+  }
+}
+
+export async function getMedicationLogs(patientId, dateStr) {
+  const resolvedPatientId = patientId || (isDemoMode ? 'demo-patient' : auth.currentUser?.uid);
+  if (!resolvedPatientId) return [];
+
+  if (isDemoMode) {
+    const store = readStore();
+    return (store.medicationLogs || []).filter(l => l.patientId === resolvedPatientId && l.dateStr === dateStr);
+  }
+  const q = query(collection(db, 'medicationLogs'), where('patientId', '==', resolvedPatientId), where('dateStr', '==', dateStr));
+  return snapshotToArray(await getDocs(q));
+}
+
 function snapshotToArray(snapshot) {
   return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
 }
