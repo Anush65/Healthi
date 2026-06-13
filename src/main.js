@@ -72,5 +72,15 @@ window.addEventListener('healthi-session-change', router);
 if (isDemoMode || !isFirebaseConfigured) {
   router();
 } else {
-  onAuthStateChanged(auth, router);
+  // Log auth state changes for debugging sign-in issues
+  onAuthStateChanged(auth, (user) => {
+    console.log('[Auth] state changed, user:', user ? { uid: user.uid, email: user.email } : null);
+    router();
+  });
+  // Also check redirect results (useful if redirect flow was used)
+  import('firebase/auth').then(({ getRedirectResult }) => {
+    getRedirectResult(auth).then((res) => {
+      if (res) console.log('[Auth] redirect result:', res?.user?.uid, res?.credential);
+    }).catch((err) => console.warn('[Auth] redirect result error', err));
+  });
 }

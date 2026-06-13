@@ -44,6 +44,8 @@ export function init() {
     const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('popup_timeout')), timeoutMs));
     try {
       await Promise.race([popupPromise, timeoutPromise]);
+      // If popup succeeds, log the current user for debugging
+      console.log('[Auth] popup sign-in success', { uid: auth.currentUser?.uid, email: auth.currentUser?.email });
     } catch (error) {
       if (error && error.message === 'popup_timeout') {
         showToast('Sign-in popup timed out — attempting redirect flow.');
