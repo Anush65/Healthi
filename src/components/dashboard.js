@@ -53,6 +53,11 @@ export async function render() {
   const doctorName = appointments.find(a => a.doctorName)?.doctorName || 'Your doctor';
   const doctorInitials = doctorName.split(' ').filter(w => w !== 'Dr.').map(word => word[0]).join('').slice(0, 2).toUpperCase() || 'MD';
 
+  const cacheRaw = typeof localStorage !== 'undefined' ? localStorage.getItem('healthi_cached_insights') : null;
+  const cache = cacheRaw ? JSON.parse(cacheRaw) : null;
+  const summaryTitle = cache?.data?.summaryInsight?.title || 'Analyze your health';
+  const summaryDesc = cache?.data?.summaryInsight?.description || 'Visit the Insights page to generate a personalized analysis of your recent health data.';
+
   return renderLayout(`
         <header class="topbar">
           <div>
@@ -67,8 +72,8 @@ export async function render() {
           <article class="insight-card">
             <div class="insight-icon">${icon('spark')}</div>
             <p class="eyebrow light">Healthi insight</p>
-            <h2>Poor sleep may be linked to your headaches.</h2>
-            <p>You mentioned a headache on two days after sleeping less than six hours. Try winding down 30 minutes earlier tonight.</p>
+            <h2>${summaryTitle}</h2>
+            <p>${summaryDesc}</p>
             <a href="#/insights">See all insights →</a>
           </article>
           <a class="quick-log-card" href="#/log">

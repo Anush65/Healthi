@@ -103,10 +103,9 @@ export async function getPredictiveInsights(logs, visits = [], appointments = []
     Identify simple correlations between symptoms, sleep, diet, and doctor recommendations.
     Do NOT offer strict medical advice or diagnoses. Keep descriptions to 1-2 friendly, reassuring sentences.
 
-    Return the result strictly as a JSON array of objects. Each object MUST have these exact keys:
-    - "title": A short 3-5 word title for the insight.
-    - "description": The 1-2 sentence reassuring observation.
-    - "type": A string that is exactly one of: "positive", "neutral", or "warning".
+    Return the result strictly as a JSON object with two keys:
+    - "summaryInsight": An object representing the most important high-level insight for the dashboard (must have "title", "description", and "type").
+    - "insights": A JSON array of 2 to 5 distinct insight objects for the detailed insights page (each with "title", "description", and "type").
 
     IMPORTANT: Return ONLY valid JSON, without markdown formatting or code blocks.
     
@@ -123,6 +122,9 @@ export async function getPredictiveInsights(logs, visits = [], appointments = []
     return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error generating insights with Gemini:", error);
-    return [{ title: "Analysis Failed", description: "We couldn't analyze your patterns today. Please check back later.", type: "warning" }];
+    return {
+      summaryInsight: { title: "Analysis Failed", description: "We couldn't analyze your patterns today.", type: "warning" },
+      insights: [{ title: "Analysis Failed", description: "Please check back later.", type: "warning" }]
+    };
   }
 }

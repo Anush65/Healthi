@@ -44,16 +44,17 @@ export async function init() {
     if (!cache || maxTs > cache.timestamp || isNewSession) {
       // Regenerate
       const recentLogs = [...logs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 14);
-      insightsArray = await getPredictiveInsights(recentLogs, visits, appointments);
+      const data = await getPredictiveInsights(recentLogs, visits, appointments);
       
       localStorage.setItem('healthi_cached_insights', JSON.stringify({
         timestamp: maxTs,
-        insights: insightsArray
+        data: data
       }));
       sessionStorage.setItem('healthi_insights_session', 'true');
+      insightsArray = data.insights || [];
     } else {
       // Use cache
-      insightsArray = cache.insights;
+      insightsArray = cache.data?.insights || cache.insights || [];
     }
 
     if (!Array.isArray(insightsArray)) insightsArray = [];
