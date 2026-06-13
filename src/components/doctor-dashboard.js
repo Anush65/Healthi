@@ -9,6 +9,7 @@ import {
   getProfile
 } from '../services/storage.js';
 import { showToast } from '../utils/toast.js';
+import { safeParseDate, compareDates, formatDate } from '../utils/date.js';
 
 let doctorProfile = null;
 let selectedPatient = null;
@@ -395,15 +396,9 @@ function friendlyAccessError(error) {
   return 'We could not load this patient record. Please try again.';
 }
 
-function formatDate(value, options) {
-  const date = value?.toDate ? value.toDate() : new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Date unavailable';
-  return date.toLocaleString(undefined, options);
-}
-
 function dateMillis(value) {
-  const date = value?.toDate ? value.toDate() : new Date(value);
-  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+  const date = safeParseDate(value);
+  return date ? date.getTime() : 0;
 }
 
 function formatLabel(value = '') {
