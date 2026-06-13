@@ -376,7 +376,7 @@ function bindClinicalForm() {
       })).filter(m => m.name.trim());
       
       // Update patient profile with new medicines
-      await import('../services/storage.js').then(m => m.setProfile({ id: selectedPatientId, medicines, role: 'patient' }));
+      await import('../services/storage.js').then(m => m.updatePatientProfile(selectedPatientId, { medicines }));
 
       const prescriptions = medicines.map(m => ({ medicine: m.name, dosage: m.instructions, frequency: 'Daily tracking', duration: '' }));
       const testsOrdered = data.test ? [{ name: data.test, description: '', status: 'pending' }] : [];

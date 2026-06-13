@@ -198,6 +198,20 @@ export async function setProfile(data) {
   }
 }
 
+export async function updatePatientProfile(patientId, data) {
+  if (isDemoMode) {
+    const store = readStore();
+    store.profiles.patient = { ...store.profiles.patient, ...data };
+    writeStore(store);
+    return;
+  }
+  const doctor = auth.currentUser;
+  if (!doctor) throw new Error('Not authenticated');
+  const profile = { ...data, updatedAt: serverTimestamp() };
+  await setDoc(doc(db, 'users', patientId), profile, { merge: true });
+}
+
+
 export async function createUserProfile(data) {
   const user = auth.currentUser;
   if (!user) throw new Error('Not authenticated');
