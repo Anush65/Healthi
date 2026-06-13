@@ -13,21 +13,17 @@
 - [x] selecting from the quick log menu auto-scrolls up and inputs "undefined" into the text box (it still understands correctly but the description keeps saying The user reports poor mood, poor sleep quality, low appetite, low energy, and suboptimal hydration.
 undefinedundefinedundefinedundefinedundefined)
 
-## Hackathon Polish Tasks (Rubric Optimization)
+# hackathon points related fixes (ai suggestions, make judgement calls on whether or not to implement these)
 
-**Craft, Execution & Shippedness (40 pts) - "End-to-end functionality & stranger-friendly"**
 - [ ] Improve all empty states across the app (Dashboard, Insights, Doctor Dashboard) to have clear, guiding calls-to-action (e.g., "You haven't logged anything today. Click here to log.") instead of just "No data".
 - [ ] Add a "Load Demo Data" or "Judge View" clear indicator on the login page so judges know they can instantly populate the app with rich historical data without narrating.
 - [ ] Add a "Reset App / Clear Data" button in Settings to allow judges to easily wipe the local DB and test the onboarding flow end-to-end multiple times.
 
-**Product Thinking (20 pts) - "Sharp, specific problem for 60-year-olds"**
 - [ ] Add a clear, empathetic tagline to the login page emphasizing the exact target audience: "The simplest daily health ledger for seniors and chronic care management."
 - [ ] Audit application copy universally to be reassuring, empathetic, and free of medical jargon (e.g., "Your doctor will review this" instead of "Data synced").
 
-**AI Integration (15 pts) - "Real work, not decoration"**
 - [ ] Implement AI "Smart Alerts": When parsing the daily log, if the AI detects severe/critical symptoms (like chest pain), display an immediate proactive warning advising them to contact their doctor.
 - [ ] Expand the Insights page to include a simple "Ask my Health Ledger" chat input where the patient can ask Gemini questions about their own history (e.g., "When did my joint pain start?").
 
-**Design (15 pts) - "Clean, usable, intentional for seniors"**
 - [ ] Conduct a strict accessibility audit: Ensure all interactive buttons are at least 48x48px (fat-finger friendly) and all base font sizes are perfectly legible for 60-year-old eyes.
 - [ ] Add a "Large Text" accessibility toggle in the Settings page that scales CSS variables for easier reading.
