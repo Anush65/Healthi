@@ -18,6 +18,11 @@ async function generateWithFallback(prompt) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent(prompt);
+      // Validate that result has required structure
+      if (!result?.response) {
+        console.warn(`[Gemini] ${modelName} returned invalid response structure`);
+        continue;
+      }
       return result;
     } catch (err) {
       console.warn(`[Gemini] ${modelName} failed:`, err.message);
@@ -26,7 +31,7 @@ async function generateWithFallback(prompt) {
       if (err.status === 401 || err.status === 403) throw err;
     }
   }
-  throw lastError;
+  throw lastError || new Error('All Gemini models failed');
 }
 
 /**
@@ -56,22 +61,43 @@ export async function parseWellnessLog(text) {
   try {
     const result = await generateWithFallback(prompt);
     if (!result?.response) {
-      throw new Error('Invalid response from Gemini API');
+      throw new Error('Invalid response structure from Gemini API');
     }
     const responseText = result.response.text();
     if (!responseText) {
-      throw new Error('Empty response from Gemini API');
+      throw new Error('Empty response text from Gemini API');
     }
     // Clean up potential markdown formatting if the model still includes it
     const cleanText = responseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+    if (!cleanText) {
+      throw new Error('Response became empty after cleaning');
+    }
     try {
-      return JSON.parse(cleanText);
+      const parsed = JSON.parse(cleanText);
+      // Validate that all required fields exist
+      if (!Array.isArray(parsed.symptoms)) {
+        parsed.symptoms = [];
+      }
+      if (!parsed.sleep) {
+        parsed.sleep = 'none mentioned';
+      }
+      if (!parsed.diet_notes) {
+        parsed.diet_notes = 'none mentioned';
+      }
+      if (!parsed.severity || !['low', 'medium', 'high'].includes(parsed.severity)) {
+        parsed.severity = 'medium';
+      }
+      if (!parsed.summary) {
+        parsed.summary = text.substring(0, 100);
+      }
+      return parsed;
     } catch (parseError) {
       console.error("JSON parse error - response was:", cleanText);
       throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`);
     }
   } catch (error) {
-    console.error("Error parsing wellness log with Gemini:", error);
+    console.error("Error parsing wellness log with Gemini:", error.message);
+    console.log("Falling back to local parser");
     return parseWellnessLogLocally(text);
   }
 }
