@@ -55,10 +55,21 @@ export async function parseWellnessLog(text) {
 
   try {
     const result = await generateWithFallback(prompt);
+    if (!result?.response) {
+      throw new Error('Invalid response from Gemini API');
+    }
     const responseText = result.response.text();
+    if (!responseText) {
+      throw new Error('Empty response from Gemini API');
+    }
     // Clean up potential markdown formatting if the model still includes it
     const cleanText = responseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
-    return JSON.parse(cleanText);
+    try {
+      return JSON.parse(cleanText);
+    } catch (parseError) {
+      console.error("JSON parse error - response was:", cleanText);
+      throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`);
+    }
   } catch (error) {
     console.error("Error parsing wellness log with Gemini:", error);
     return parseWellnessLogLocally(text);
