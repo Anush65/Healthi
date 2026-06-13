@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+// Support both possible env names and use Vite's import.meta.env
+const apiKey = import.meta?.env?.VITE_HealthiApiKey || import.meta?.env?.VITE_HealthApiKey;
 let genAI = null;
 
 async function generateWithFallback(prompt) {
