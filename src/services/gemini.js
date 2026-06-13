@@ -115,19 +115,15 @@ function parseWellnessLogLocally(text) {
   ];
   const symptoms = knownSymptoms.filter((symptom) => lower.includes(symptom));
   const sleepMatch = lower.match(/(\d+(?:\.\d+)?)\s*(hours?|hrs?|h)\b/);
-  const walkMatch = lower.match(/walk(?:ed|ing)?\s*(?:for)?\s*(\d+)\s*(minutes?|mins?)/);
-  const medicationMentioned = /(medicine|medication|tablet|pill|dose|took)/.test(lower);
   const severity = /(severe|very bad|intense|unbearable|worst|emergency)/.test(lower)
     ? 'high'
     : /(mild|little|brief|slight|minor)/.test(lower) ? 'low' : symptoms.length ? 'medium' : 'low';
 
+  // Match the exact schema expected by Gemini API response
   return {
     symptoms,
-    sleep: sleepMatch ? `${sleepMatch[1]} hours mentioned` : lower.includes('sleep') ? 'Sleep mentioned' : 'Not mentioned',
-    hydration: lower.includes('water') || lower.includes('hydration') ? 'Mentioned' : 'Not mentioned',
-    diet_notes: /(breakfast|lunch|dinner|meal|food|ate|skipped)/.test(lower) ? 'Food or meal mentioned' : 'Not mentioned',
-    activity: walkMatch ? `Walked ${walkMatch[1]} ${walkMatch[2]}` : lower.includes('walk') ? 'Walking mentioned' : 'Not mentioned',
-    medication: medicationMentioned ? 'Medication mentioned' : 'Not mentioned',
+    sleep: sleepMatch ? `${sleepMatch[1]} hours mentioned` : lower.includes('sleep') ? 'Sleep mentioned' : 'none mentioned',
+    diet_notes: /(breakfast|lunch|dinner|meal|food|ate|skipped)/.test(lower) ? 'Food or meal mentioned' : 'none mentioned',
     severity,
     summary: text.length > 86 ? `${text.slice(0, 83)}...` : text
   };
@@ -141,7 +137,8 @@ function getLocalPredictiveInsight(historyData) {
     return symptoms.length && (/([1-5])\s*hours?/.test(sleep) || sleep.includes('poor') || sleep.includes('restless'));
   }).length;
   const activeDays = logs.filter((log) => {
-    const text = `${log.raw_text || ''} ${log.parsed_data?.activity || log.activity || ''}`.toLowerCase();
+    // Look for activity in raw_text since parsed_data no longer contains activity field
+    const text = (log.raw_text || '').toLowerCase();
     return /walk|exercise|active|movement/.test(text);
   }).length;
 
@@ -151,5 +148,5 @@ function getLocalPredictiveInsight(historyData) {
   if (activeDays >= 2) {
     return 'Your recent logs mention movement on multiple days. Continue tracking activity alongside symptoms so Healthi can show clearer trends over time.';
   }
-  return 'Healthi saved your recent logs and can still summarize patterns without the AI service. Keep logging sleep, symptoms, hydration, and medication to make future insights clearer.';
+  return 'Healthi saved your recent logs and can still summarize patterns without the AI service. Keep logging sleep, symptoms, diet, and health readings to make future insights clearer.';
 }
