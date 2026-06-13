@@ -36,7 +36,7 @@ export async function render() {
         <form id="patient-access-form" class="patient-access-form" novalidate>
           <label for="patient-uid">Patient UID</label>
           <div class="patient-access-row">
-            <input id="patient-uid" name="patientUid" autocomplete="off" maxlength="128" placeholder="e.g. demo-patient" required>
+            <input id="patient-uid" name="patientUid" autocomplete="off" maxlength="128" placeholder="Enter patient UID" required>
             <button id="patient-access-submit" class="btn btn-primary" type="submit">View record</button>
           </div>
           <p id="patient-access-help" class="form-message muted">Ask the patient to share the UID shown in their account.</p>

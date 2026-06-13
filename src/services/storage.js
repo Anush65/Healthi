@@ -386,9 +386,11 @@ export async function addVisit(data) {
   }
   const doctor = auth.currentUser;
   if (!doctor) throw new Error('Not authenticated');
+  const doctorProfile = await getProfile();
   await addDoc(collection(db, 'doctorVisits'), {
     ...data,
     doctorId: doctor.uid,
+    doctorName: doctorProfile?.name || '',
     date: new Date().toISOString(),
     createdAt: serverTimestamp()
   });

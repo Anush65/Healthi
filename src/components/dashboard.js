@@ -180,7 +180,7 @@ export async function render() {
               <p class="eyebrow">From your doctor</p>
               <h3>${latestVisit?.recommendations || 'No new recommendations.'}</h3>
               <p>${latestVisit?.doctorNotes || ''}</p>
-              <div class="doctor-signoff"><span>AM</span><div><strong>Dr. Arjun Mehta</strong><small>Internal Medicine</small></div></div>
+              <div class="doctor-signoff"><span>DR</span><div><strong>${latestVisit?.doctorName || 'Your doctor'}</strong><small>Healthcare professional</small></div></div>
             </article>
           </aside>
         </section>
@@ -193,21 +193,39 @@ export function init() {
   document.querySelectorAll('.reading-form').forEach((form) => {
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      const metrics = Object.fromEntries(
-        Array.from(new FormData(form).entries()).map(([key, value]) => [key, Number(value)])
-      );
-      await addMetricLog({ condition: form.dataset.condition, metrics });
-      showToast('Reading saved.');
-      window.dispatchEvent(new Event('hashchange'));
+      const button = form.querySelector('button[type="submit"]');
+      button.disabled = true;
+      button.textContent = 'Saving...';
+      try {
+        const metrics = Object.fromEntries(
+          Array.from(new FormData(form).entries()).map(([key, value]) => [key, Number(value)])
+        );
+        await addMetricLog({ condition: form.dataset.condition, metrics });
+        showToast('Reading saved.');
+        window.dispatchEvent(new Event('hashchange'));
+      } catch (error) {
+        showToast(error.message);
+        button.disabled = false;
+        button.textContent = 'Save reading';
+      }
     });
   });
 
   document.getElementById('reschedule-btn')?.addEventListener('click', async (event) => {
-    const date = new Date();
-    date.setDate(date.getDate() + 7);
-    date.setHours(10, 0, 0, 0);
-    await updateAppointment(event.currentTarget.dataset.id, { scheduledDate: date.toISOString(), status: 'scheduled' });
-    showToast('Appointment moved to next week.');
-    window.dispatchEvent(new Event('hashchange'));
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = 'Rescheduling...';
+    try {
+      const date = new Date();
+      date.setDate(date.getDate() + 7);
+      date.setHours(10, 0, 0, 0);
+      await updateAppointment(button.dataset.id, { scheduledDate: date.toISOString(), status: 'scheduled' });
+      showToast('Appointment moved to next week.');
+      window.dispatchEvent(new Event('hashchange'));
+    } catch (error) {
+      showToast(error.message);
+      button.disabled = false;
+      button.textContent = 'Reschedule';
+    }
   });
 }

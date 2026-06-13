@@ -49,7 +49,11 @@ export async function init() {
     const recentLogs = logs.slice(0, 14);
     
     const insightText = await getPredictiveInsights(recentLogs);
-    await saveInsight(insightText);
+    try {
+      await saveInsight(insightText);
+    } catch (error) {
+      console.warn('Insight could not be saved, but it will still be shown:', error);
+    }
     
     container.innerHTML = `
       <div>
