@@ -1,0 +1,14 @@
+- `[x]` Update `src/config/conditions.js` with new metrics.
+- `[x]` Update demo patient in `src/services/storage.js`.
+- `[x]` Restructure patient dashboard UI in `src/components/dashboard.js`.
+- `[x]` Update doctor dashboard UI in `src/components/doctor-dashboard.js`.
+- `[x]` Move "From your doctor" parallel to appointments in patient UI.
+- `[x]` Swap "Next appointment" and "Recent symptom" in doctor UI.
+- `[x]` Patient Dashboard: Arrange Oxygen Level, Temperature, Next Appointment on the same line.
+- `[x]` Doctor Dashboard: Remove individual Save buttons and save metrics via the "Save care plan" form.
+- `[x]` Fix metric parsing bug caused by underscores in condition ID.
+- `[x]` Format metric input fields to display 2 in a row.
+- `[x]` Add Error handling to the Save functionality so errors can be inspected.
+- `[x]` Fix Firebase Firestore security rules blocking Doctors from saving metric logs.
+- `[x]` Fix "Care updates" layout on Patient Dashboard (switched to 2-column clinical-grid so it isn't squished to the left).
+- `[x]` Deploy to Firebase.

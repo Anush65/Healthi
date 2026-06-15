@@ -11,7 +11,8 @@ const routes = {
   export: () => import('./components/export.js'),
   settings: () => import('./components/settings.js'),
   auth: () => import('./components/auth.js'),
-  'doctor-dashboard': () => import('./components/doctor-dashboard.js')
+  'doctor-dashboard': () => import('./components/doctor-dashboard.js'),
+  seed: () => import('./components/seed.js')
 };
 
 export async function router() {

@@ -33,11 +33,12 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow create: if signedIn() && request.auth.uid == userId;
-      allow read: if signedIn() && (
+      allow read: if signedIn();
+      allow update: if signedIn() && (
         request.auth.uid == userId ||
         (isDoctor() && isAssignedDoctor(userId))
       );
-      allow update, delete: if signedIn() && request.auth.uid == userId;
+      allow delete: if signedIn() && request.auth.uid == userId;
     }
 
     match /patientCodes/{code} {
@@ -63,21 +64,15 @@ service cloud.firestore {
     }
 
     match /doctorAssignments/{assignmentId} {
-      allow create: if isDoctor() &&
+      allow create: if (isDoctor() &&
         request.resource.data.doctorId == request.auth.uid &&
         request.resource.data.patientId is string &&
         assignmentId == request.auth.uid + "_" + request.resource.data.patientId &&
-        (
-          (
-            request.resource.data.accessMethod == "uid" &&
-            exists(/databases/$(database)/documents/patientUids/$(request.resource.data.patientId))
-          ) ||
-          (
-            request.resource.data.patientCode is string &&
-            get(/databases/$(database)/documents/patientCodes/$(request.resource.data.patientCode)).data.patientId
-              == request.resource.data.patientId
-          )
-        );
+        request.resource.data.patientCode is string &&
+        get(/databases/$(database)/documents/patientCodes/$(request.resource.data.patientCode)).data.patientId
+          == request.resource.data.patientId) || 
+        (isPatient() && request.resource.data.patientId == request.auth.uid &&
+        assignmentId == request.resource.data.doctorId + "_" + request.auth.uid);
       allow read: if signedIn() && (
         resource.data.doctorId == request.auth.uid ||
         resource.data.patientId == request.auth.uid
@@ -95,14 +90,23 @@ service cloud.firestore {
       allow update, delete: if isPatient() && resource.data.patientId == request.auth.uid;
     }
 
-    match /metricLogs/{entryId} {
+    match /medicationLogs/{logId} {
       allow create: if isPatient() && request.resource.data.patientId == request.auth.uid;
       allow read: if canReadPatientData(resource.data.patientId);
       allow update, delete: if isPatient() && resource.data.patientId == request.auth.uid;
     }
 
+    match /metricLogs/{entryId} {
+      allow create: if (isPatient() && request.resource.data.patientId == request.auth.uid) ||
+                       (isDoctor() && isAssignedDoctor(request.resource.data.patientId));
+      allow read: if canReadPatientData(resource.data.patientId);
+      allow update, delete: if (isPatient() && resource.data.patientId == request.auth.uid) ||
+                               (isDoctor() && isAssignedDoctor(resource.data.patientId));
+    }
+
     match /appointments/{appointmentId} {
-      allow create: if isDoctor() && isAssignedDoctor(request.resource.data.patientId);
+      allow create: if (isDoctor() && isAssignedDoctor(request.resource.data.patientId)) ||
+                       (isPatient() && request.resource.data.patientId == request.auth.uid);
       allow read: if canReadPatientData(resource.data.patientId);
       allow update: if (
         isDoctor() && isAssignedDoctor(resource.data.patientId)
@@ -119,7 +123,8 @@ service cloud.firestore {
     }
 
     match /doctorVisits/{visitId} {
-      allow create: if isDoctor() && isAssignedDoctor(request.resource.data.patientId);
+      allow create: if (isDoctor() && isAssignedDoctor(request.resource.data.patientId)) ||
+                       (isPatient() && request.resource.data.patientId == request.auth.uid);
       allow read: if canReadPatientData(resource.data.patientId);
       allow update: if isDoctor() && isAssignedDoctor(resource.data.patientId);
       allow delete: if signedIn() && (

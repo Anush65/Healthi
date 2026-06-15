@@ -6,8 +6,13 @@ import {
   getPatientInsights,
   getPatientLogs,
   getPatientMetricLogs,
-  getProfile
+  getPatientProfile,
+  getProfile,
+  getVisits,
+  linkPatientToDoctor,
+  addMetricLog
 } from '../services/storage.js';
+import { getConditionConfig } from '../config/conditions.js';
 import { showToast } from '../utils/toast.js';
 import { safeParseDate, compareDates, formatDate } from '../utils/date.js';
 
@@ -18,30 +23,55 @@ let patientData = null;
 export async function render() {
   doctorProfile = await getProfile();
 
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  startOfWeek.setHours(0,0,0,0);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+  const oneWeekAgo = new Date(now);
+  oneWeekAgo.setDate(now.getDate() - 7);
+
+  let appointmentsThisWeekCount = 0;
+  let newHealthEntriesCount = 0;
+
+  if (patients.length > 0) {
+    await Promise.all(patients.map(async (p) => {
+      const [appointments, logs] = await Promise.all([
+        getAppointments(p.id),
+        getPatientLogs(p.id)
+      ]);
+      appointments.forEach(a => {
+        const d = new Date(a.scheduledDate);
+        if (d >= startOfWeek && d < endOfWeek) appointmentsThisWeekCount++;
+      });
+      logs.forEach(l => {
+        const d = new Date(l.date);
+        if (d >= oneWeekAgo) newHealthEntriesCount++;
+      });
+    }));
+  }
+
   return `
     <main class="doctor-shell">
       <header class="doctor-header no-print">
         <a class="brand" href="#/doctor-dashboard"><span class="brand-mark">H</span><span>Healthi Clinical</span></a>
         <div class="doctor-header-actions">
-          <div><strong>${escapeHtml(doctorProfile?.name || 'Doctor')}</strong><div class="muted">${escapeHtml(doctorProfile?.specialty || 'Healthcare professional')}</div></div>
-          <button id="logout-btn" class="btn btn-secondary" type="button">Sign out</button>
+          <div><strong>${doctor?.name || 'Doctor'}</strong><div class="muted">${doctor?.specialty || 'Healthcare professional'}</div></div>
+          ${patients.length === 0 ? '<button id="delete-doctor-btn" class="btn" style="background-color: #ef4444; color: white;">Delete Account</button>' : ''}
+          <button id="logout-btn" class="btn btn-secondary">Sign out</button>
         </div>
       </header>
 
-      <section class="doctor-access no-print" aria-labelledby="doctor-access-title">
-        <div>
-          <p class="eyebrow">Patient access</p>
-          <h1 id="doctor-access-title">Open a patient record</h1>
-          <p class="muted">Enter the patient's unique UID. Health records are read-only in this workspace.</p>
-        </div>
-        <form id="patient-access-form" class="patient-access-form" novalidate>
-          <label for="patient-uid">Patient UID</label>
-          <div class="patient-access-row">
-            <input id="patient-uid" name="patientUid" autocomplete="off" maxlength="128" placeholder="Enter patient UID" required>
-            <button id="patient-access-submit" class="btn btn-primary" type="submit">View record</button>
-          </div>
-          <p id="patient-access-help" class="form-message muted">Ask the patient to share the UID shown in their account.</p>
-        </form>
+      <div class="topbar">
+        <div><p class="eyebrow">Clinical workspace</p><h1>Good morning, Doctor.</h1><p class="muted">Review changes, update care plans, and keep patients moving forward.</p></div>
+      </div>
+
+      <section class="doctor-overview">
+        <article class="overview-card"><span>Active patients</span><strong>${patients.length}</strong></article>
+        <article class="overview-card"><span>Appointments this week</span><strong>${appointmentsThisWeekCount}</strong></article>
+        <article class="overview-card"><span>New health entries</span><strong>${newHealthEntriesCount}</strong></article>
       </section>
 
       <section id="doctor-workspace" class="doctor-workspace no-print" aria-live="polite">
@@ -56,29 +86,31 @@ export async function render() {
     </main>`;
 }
 
-export function init() {
-  document.getElementById('logout-btn')?.addEventListener('click', async () => {
-    await clearAllData();
-    window.location.hash = '#/auth';
-    window.dispatchEvent(new Event('healthi-session-change'));
-  });
+async function renderPatient(patientId) {
+  const [profile, logs, metrics, visits, appointments] = await Promise.all([
+    getPatientProfile(patientId),
+    getPatientLogs(patientId),
+    getPatientMetricLogs(patientId),
+    getVisits(patientId),
+    getAppointments(patientId)
+  ]);
+  const latestBp = metrics.filter((item) => item.condition === 'hypertension').at(-1);
+  const latestSugar = metrics.filter((item) => item.condition === 'diabetes').at(-1);
+  const latestTemp = metrics.filter((item) => item.condition === 'temperature').at(-1);
+  const latestOxygen = metrics.filter((item) => item.condition === 'oxygen_level').at(-1);
+  const latestWeight = metrics.filter((item) => item.condition === 'body_weight').at(-1);
+  const sortedAppointments = [...appointments].sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
+  const nextAppointment = sortedAppointments.filter(a => new Date(a.scheduledDate) >= new Date())[0] || sortedAppointments.at(-1);
 
-  document.getElementById('patient-access-form')?.addEventListener('submit', handlePatientAccess);
-}
-
-async function handlePatientAccess(event) {
-  event.preventDefault();
-  const input = document.getElementById('patient-uid');
-  const submit = document.getElementById('patient-access-submit');
-  const message = document.getElementById('patient-access-help');
-  const patientUid = input.value.trim();
-
-  message.className = 'form-message muted';
-  if (!patientUid || patientUid.length > 128 || patientUid.includes('/')) {
-    message.textContent = 'Enter a valid patient UID without slashes.';
-    message.className = 'form-message error-message';
-    input.focus();
-    return;
+  if (!profile) {
+    return `
+      <div class="centered-state">
+        <div class="card">
+          <p class="eyebrow">Patient unavailable</p>
+          <h2>We could not load this patient profile.</h2>
+          <p class="muted">Try adding the patient again with their current access code.</p>
+        </div>
+      </div>`;
   }
 
   submit.disabled = true;
@@ -108,46 +140,65 @@ async function handlePatientAccess(event) {
   }
 }
 
-function setWorkspaceLoading() {
-  document.getElementById('doctor-workspace').innerHTML = `
-    <div class="doctor-empty-state" role="status">
-      <span class="loading-spinner" aria-hidden="true"></span>
-      <h2>Loading patient record</h2>
-      <p class="muted">Fetching the patient profile and health history...</p>
-    </div>`;
-}
+    <section data-tab-panel="overview">
+      <div class="clinical-grid">
+        <article class="clinical-card"><p class="eyebrow">Blood pressure</p><h3>${latestBp ? `${latestBp.metrics.systolic}/${latestBp.metrics.diastolic} mmHg` : 'No reading'}</h3><p>Latest recorded reading</p></article>
+        <article class="clinical-card"><p class="eyebrow">Blood sugar</p><h3>${latestSugar ? `${latestSugar.metrics.blood_sugar} mg/dL` : 'No reading'}</h3><p>Latest recorded reading</p></article>
+        <article class="clinical-card"><p class="eyebrow">Temperature</p><h3>${latestTemp ? `${latestTemp.metrics.temperature} °F` : 'No reading'}</h3><p>Latest recorded reading</p></article>
+        <article class="clinical-card"><p class="eyebrow">Oxygen Level</p><h3>${latestOxygen ? `${latestOxygen.metrics.spo2} %` : 'No reading'}</h3><p>Latest recorded reading</p></article>
+        <article class="clinical-card"><p class="eyebrow">Body Weight</p><h3>${latestWeight ? `${latestWeight.metrics.weight} lbs` : 'No reading'}</h3><p>Latest recorded reading</p></article>
+        <article class="clinical-card"><p class="eyebrow">Next appointment</p><h3>${nextAppointment ? new Date(nextAppointment.scheduledDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Not scheduled'}</h3><p>${nextAppointment?.reason || 'Create a follow-up below'}</p></article>
+        <article class="clinical-card" style="grid-column: 1 / -1;"><p class="eyebrow">Recent symptom</p><h3>${logs[0]?.parsed_data.summary || 'No recent symptoms'}</h3><p>${logs[0] ? new Date(logs[0].date).toLocaleDateString() : ''}</p></article>
+      </div>
+      <div class="action-form">
+        <p class="eyebrow">Appointments</p>
+        ${renderAppointmentList(appointments)}
+      </div>
+    </section>
 
-function setWorkspaceError(message) {
-  document.getElementById('doctor-workspace').innerHTML = `
-    <div class="doctor-empty-state">
-      <span class="patient-avatar">!</span>
-      <h2>Patient record unavailable</h2>
-      <p class="muted">${escapeHtml(message)}</p>
-    </div>`;
-  document.getElementById('doctor-report').hidden = true;
-}
+    <section data-tab-panel="timeline" hidden>
+      <div class="action-form">
+        <p class="eyebrow">Health timeline</p>
+        ${renderTimeline(logs, visits)}
+      </div>
+    </section>
 
-function renderWorkspace() {
-  const workspace = document.getElementById('doctor-workspace');
-  const entries = buildLedgerEntries(patientData.logs, patientData.metrics);
-
-  workspace.innerHTML = `
-    ${renderPatientOverview(selectedPatient)}
-
-    <div class="doctor-dashboard-grid">
-      <section class="doctor-section ledger-section">
-        <div class="section-heading">
-          <div><p class="eyebrow">Health ledger</p><h2>Patient history</h2></div>
-          <button id="report-toggle-btn" class="btn btn-secondary" type="button">Report view</button>
+    <section data-tab-panel="care-plan" hidden>
+      <form id="clinical-form">
+        <div class="action-form">
+          <div class="section-heading"><div><p class="eyebrow">Readings</p><h2>Add a reading</h2></div></div>
+          <div class="form-grid">
+            ${renderReadingForms(profile)}
+          </div>
         </div>
-        <form id="ledger-filter-form" class="ledger-filters">
-          <div class="field"><label for="ledger-from">From</label><input id="ledger-from" name="from" type="date"></div>
-          <div class="field"><label for="ledger-to">To</label><input id="ledger-to" name="to" type="date"></div>
-          <button class="btn btn-secondary" type="submit">Apply dates</button>
-          <button id="clear-ledger-filter" class="text-button" type="button">Clear</button>
-        </form>
-        <div id="ledger-results">${renderLedger(entries)}</div>
-      </section>
+
+        <div class="action-form">
+          <div class="section-heading"><div><p class="eyebrow">Clinical action</p><h2>Update care plan</h2></div></div>
+          <div class="form-grid">
+            <div class="field"><label for="diagnosis">Assessment / diagnosis</label><input id="diagnosis" name="diagnosis" placeholder="e.g. Blood pressure improving"></div>
+            <div class="field full" style="margin-top: 10px; padding: 16px; background: var(--sage); border-radius: 14px; border: 1px solid var(--line);">
+              <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 12px;">
+                <label style="margin: 0;">Medicines to track daily</label>
+                <button type="button" class="text-button" id="add-medicine-btn" style="padding: 0;">+ Add Medicine</button>
+              </div>
+              <div id="medicine-list" style="display:grid; gap:8px;">
+                ${(profile.medicines || []).map(med => `
+                  <div class="med-item" style="display:flex; gap:8px;">
+                    <input name="medicine_name[]" value="${med.name}" placeholder="Medicine name" style="flex:2" required>
+                    <input name="medicine_dosage[]" value="${med.instructions || ''}" placeholder="Dosage" style="flex:1">
+                    <input name="medicine_timing[]" value="${med.timing || ''}" placeholder="Timing (e.g. 1-0-1)" style="flex:1">
+                    <button type="button" class="btn btn-secondary" onclick="this.parentElement.remove()" style="min-height:auto; padding: 12px; color: var(--danger);">Remove</button>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="field full"><label for="test">Test or procedure</label><input id="test" name="test" placeholder="e.g. HbA1c"></div>
+            <div class="field"><label for="appointment">Next appointment</label><input id="appointment" name="appointment" type="datetime-local"></div>
+            <div class="field full"><label for="recommendation">Recommendation for patient</label><textarea id="recommendation" name="recommendation" rows="3" placeholder="Write a clear next step for the patient"></textarea></div>
+            <div class="field full"><button class="btn btn-primary" type="submit">Save care plan & readings</button></div>
+          </div>
+        </div>
+      </form>
 
       <aside class="doctor-side-column">
         <section class="doctor-section">
@@ -181,9 +232,33 @@ function renderWorkspace() {
       <div id="recommendations-history">${renderRecommendations(patientData.recommendations)}</div>
     </section>`;
 
-  renderReport();
-  bindWorkspaceEvents(entries);
+function renderReadingForms(profile) {
+  const requiredConditions = ['temperature', 'oxygen_level', 'body_weight', ...(profile.conditions || [])];
+  
+  // We need to deduplicate in case default metrics are in profile.conditions
+  const uniqueConditions = [...new Set(requiredConditions)];
+  
+  const conditions = uniqueConditions
+    .map((condition) => getConditionConfig(condition))
+    .filter(Boolean);
+
+  if (!conditions.length) {
+    return '<p class="muted">Patient has no conditions configured for structured readings.</p>';
+  }
+
+  return conditions.flatMap((condition) => 
+    condition.metrics.map((metric) => `
+      <div class="field">
+        <label for="${condition.id}-${metric.id}">${metric.label}</label>
+        <input id="${condition.id}-${metric.id}" name="metric_${condition.id}_${metric.id}" type="${metric.type}" min="0" placeholder="${metric.placeholder}" step="any">
+      </div>
+    `)
+  ).join('');
 }
+
+function renderAppointmentList(appointments) {
+  const sortedAppointments = [...appointments].sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
+  if (!sortedAppointments.length) return '<p class="muted">No appointments scheduled yet.</p>';
 
 function renderPatientOverview(profile) {
   const conditions = profile.conditions?.length ? profile.conditions.map(formatLabel).join(', ') : 'None recorded';
@@ -291,9 +366,31 @@ function bindWorkspaceEvents(allEntries) {
     document.getElementById('ledger-results').innerHTML = renderLedger(filtered);
   });
 
-  document.getElementById('clear-ledger-filter')?.addEventListener('click', () => {
-    document.getElementById('ledger-filter-form').reset();
-    document.getElementById('ledger-results').innerHTML = renderLedger(allEntries);
+  document.getElementById('delete-doctor-btn')?.addEventListener('click', async () => {
+    const confirmDelete = confirm("Are you sure you want to PERMANENTLY delete your account? This cannot be undone.");
+    if (confirmDelete) {
+      try {
+        await import('../services/storage.js').then(m => m.deleteAccount());
+        window.location.hash = '#/auth';
+      } catch (err) {
+        if (err.code === 'auth/requires-recent-login') {
+           alert('For security reasons, you must log out and log back in before deleting your account.');
+        } else {
+           alert('Failed to delete account: ' + err.message);
+        }
+      }
+    }
+  });
+
+  document.getElementById('link-patient-btn')?.addEventListener('click', async () => {
+    const input = document.getElementById('patient-code');
+    try {
+      await linkPatientToDoctor(input.value.trim().toUpperCase());
+      showToast('Patient linked successfully.');
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    } catch (error) {
+      showToast(error.message);
+    }
   });
 
   document.getElementById('recommendation-form')?.addEventListener('submit', handleRecommendation);
@@ -319,13 +416,21 @@ async function handleRecommendation(event) {
     return;
   }
 
-  button.disabled = true;
-  button.textContent = 'Saving...';
-  try {
-    await addDoctorRecommendation({
-      patientId: selectedPatient.id,
-      text: data.text,
-      doctorName: data.doctorName
+
+
+function bindPatientTabs() {
+  const detail = document.getElementById('patient-detail');
+  detail?.querySelectorAll('[data-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const tab = button.dataset.tab;
+      detail.querySelectorAll('[data-tab]').forEach((item) => {
+        const isActive = item === button;
+        item.classList.toggle('active', isActive);
+        item.setAttribute('aria-selected', String(isActive));
+      });
+      detail.querySelectorAll('[data-tab-panel]').forEach((panel) => {
+        panel.hidden = panel.dataset.tabPanel !== tab;
+      });
     });
     patientData.recommendations = await getDoctorRecommendations(selectedPatient.id);
     document.getElementById('recommendations-history').innerHTML = renderRecommendations(patientData.recommendations);
@@ -345,76 +450,88 @@ async function handleRecommendation(event) {
   }
 }
 
-function renderReport() {
-  const report = document.getElementById('doctor-report');
-  const entries = buildLedgerEntries(patientData.logs, patientData.metrics).slice(0, 12);
-  const conditions = selectedPatient.conditions?.length
-    ? selectedPatient.conditions.map(formatLabel).join(', ')
-    : 'None recorded';
+function bindClinicalForm() {
+  document.getElementById('add-medicine-btn')?.addEventListener('click', () => {
+    const list = document.getElementById('medicine-list');
+    const div = document.createElement('div');
+    div.className = 'med-item';
+    div.style.display = 'flex';
+    div.style.gap = '8px';
+    div.innerHTML = `
+      <input name="medicine_name[]" placeholder="Medicine name" style="flex:2" required>
+      <input name="medicine_dosage[]" placeholder="Dosage" style="flex:1">
+      <input name="medicine_timing[]" placeholder="Timing (e.g. 1-0-1)" style="flex:1">
+      <button type="button" class="btn btn-secondary" onclick="this.parentElement.remove()" style="min-height:auto; padding: 12px; color: var(--danger);">Remove</button>
+    `;
+    list.appendChild(div);
+  });
 
-  report.innerHTML = `
-    <div class="report-actions no-print">
-      <div><p class="eyebrow">Printable summary</p><h2>Patient report</h2></div>
-      <div><button id="close-report-btn" class="btn btn-secondary" type="button">Close</button> <button id="print-report-btn" class="btn btn-primary" type="button">Print report</button></div>
-    </div>
-    <article class="report-paper">
-      <header class="report-header">
-        <div><span class="brand-mark">H</span><div><strong>Healthi Patient Summary</strong><p>Generated ${escapeHtml(new Date().toLocaleString())}</p></div></div>
-        <span>Confidential health information</span>
-      </header>
-      <section class="report-section">
-        <h2>${escapeHtml(selectedPatient.name || 'Unnamed patient')}</h2>
-        <div class="report-facts">
-          <p><strong>Patient UID:</strong> ${escapeHtml(selectedPatient.id)}</p>
-          <p><strong>Age:</strong> ${escapeHtml(selectedPatient.age ?? 'Not provided')}</p>
-          <p><strong>Gender:</strong> ${escapeHtml(selectedPatient.gender || 'Not provided')}</p>
-          <p><strong>Conditions:</strong> ${escapeHtml(conditions)}</p>
-        </div>
-      </section>
-      <section class="report-section">
-        <h3>Recent health logs</h3>
-        ${entries.length ? entries.map((entry) => `
-          <div class="report-row"><time>${escapeHtml(formatDate(entry.date, { year: 'numeric', month: 'short', day: 'numeric' }))}</time><div><strong>${escapeHtml(entry.title)}</strong><p>${escapeHtml(entry.description)}</p></div></div>
-        `).join('') : '<p>No health logs recorded.</p>'}
-      </section>
-      <section class="report-section">
-        <h3>AI insights</h3>
-        ${patientData.insights.length ? `<ul>${patientData.insights.map((insight) => `<li>${escapeHtml(insight.text)}</li>`).join('')}</ul>` : '<p>No saved AI insights.</p>'}
-      </section>
-      <section class="report-section">
-        <h3>Doctor recommendations</h3>
-        ${patientData.recommendations.length ? patientData.recommendations.map((item) => `
-          <div class="report-row"><time>${escapeHtml(formatDate(item.createdAt, { year: 'numeric', month: 'short', day: 'numeric' }))}</time><div><strong>${escapeHtml(item.doctorName || 'Doctor')}</strong><p>${escapeHtml(item.text)}</p></div></div>
-        `).join('') : '<p>No doctor recommendations.</p>'}
-      </section>
-    </article>`;
-}
+  document.getElementById('clinical-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      const formData = new FormData(event.currentTarget);
+      const data = Object.fromEntries(formData);
 
-function friendlyAccessError(error) {
-  if (error?.code === 'permission-denied') return 'You do not have permission to open this patient record.';
-  if (error?.message?.includes('No patient')) return 'No patient was found with that UID. Check the UID and try again.';
-  return 'We could not load this patient record. Please try again.';
-}
+      const metricGroups = {};
+      for (const key in data) {
+        if (key.startsWith('metric_') && data[key] !== '') {
+          const parts = key.split('_');
+          const metricId = parts.pop();
+          parts.shift(); // remove 'metric'
+          const conditionId = parts.join('_');
+          
+          if (!metricGroups[conditionId]) metricGroups[conditionId] = {};
+          metricGroups[conditionId][metricId] = Number(data[key]);
+        }
+      }
 
-function dateMillis(value) {
-  const date = safeParseDate(value);
-  return date ? date.getTime() : 0;
-}
+      const metricPromises = Object.entries(metricGroups).map(([conditionId, metrics]) => {
+        return addMetricLog({ patientId: selectedPatientId, condition: conditionId, metrics });
+      });
+      await Promise.all(metricPromises);
 
-function formatLabel(value = '') {
-  return String(value).replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
+      const medNames = formData.getAll('medicine_name[]');
+      const medDosages = formData.getAll('medicine_dosage[]');
+      const medTimings = formData.getAll('medicine_timing[]');
+      
+      const medicines = medNames.map((name, i) => ({
+        id: name.replace(/\\s+/g, '').toLowerCase() + Date.now().toString().slice(-4),
+        name,
+        instructions: medDosages[i] || '',
+        timing: medTimings[i] || ''
+      })).filter(m => m.name.trim());
+      
+      // Update patient profile with new medicines
+      await import('../services/storage.js').then(m => m.updatePatientProfile(selectedPatientId, { medicines }));
 
-function initials(name = '') {
-  const value = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('');
-  return escapeHtml(value || 'P');
-}
+      const prescriptions = medicines.map(m => ({ medicine: m.name, dosage: m.instructions, frequency: 'Daily tracking', duration: '' }));
+      const testsOrdered = data.test ? [{ name: data.test, description: '', status: 'pending' }] : [];
 
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+      await addVisit({
+        patientId: selectedPatientId,
+        diagnosis: data.diagnosis || 'Follow-up review',
+        prescriptions,
+        testsOrdered,
+        recommendations: data.recommendation || 'Continue the current care plan.',
+        doctorNotes: data.recommendation || ''
+      });
+
+      if (data.appointment) {
+        await addAppointment({
+          patientId: selectedPatientId,
+          scheduledDate: new Date(data.appointment).toISOString(),
+          status: 'scheduled',
+          reason: data.diagnosis || 'Clinical follow-up',
+          notes: data.recommendation || ''
+        });
+      }
+
+      showToast('Care plan saved and shared with the patient.');
+      document.getElementById('patient-detail').innerHTML = await renderPatient(selectedPatientId);
+      bindPatientDetail();
+    } catch (error) {
+      console.error('Error saving care plan:', error);
+      showToast('Error saving care plan: ' + error.message);
+    }
+  });
 }

@@ -20,14 +20,14 @@ export async function render() {
           <form id="role-form">
             <label class="role-choice"><input type="radio" name="role" value="patient" checked><span><strong>Patient</strong><small>Track and share my health</small></span></label>
             <label class="role-choice"><input type="radio" name="role" value="doctor"><span><strong>Doctor</strong><small>Support my patients</small></span></label>
-            <button class="btn btn-primary btn-block" type="submit">Complete setup</button>
-          </form>` : isFirebaseConfigured ? `
-          <p class="muted">Sign in or create an account first. New users choose Patient or Doctor after authentication.</p>
-          <button id="google-btn" class="btn btn-secondary btn-block">Sign in with Google</button>` : `
-          <div class="auth-config-message" role="status">
-            <strong>Authentication is not configured.</strong>
-            <p>Add the Firebase environment variables to enable account sign-in and creation.</p>
-          </div>`}
+            <label style="display:flex; align-items:center; gap:12px; margin-top:16px; cursor:pointer; background: var(--blue-50); padding: 16px; border-radius: var(--radius-button); border: 1px solid var(--blue-100);">
+              <input type="checkbox" name="isDemo" value="true" style="width:20px; height:20px; cursor:pointer;">
+              <span style="font-size: 15px; font-weight: 500; color: var(--blue-800);">Pre-load Demo Data (Hackathon Judges - Patients only)</span>
+            </label>
+            <button class="btn btn-primary btn-block" type="submit" style="margin-top:16px;">Complete setup</button>
+          </form>` : `
+          <p class="muted">Sign in securely to open your health ledger.</p>
+          <button id="google-btn" class="btn btn-secondary btn-block">Continue with Google</button>`}
       </div>
     </main>`;
 }
@@ -39,9 +39,9 @@ export function init() {
     button.textContent = 'Redirecting...';
     const provider = new GoogleAuthProvider();
     try {
-      // Use redirect flow to avoid popup blocking/COOP issues
-      await signInWithRedirect(auth, provider);
-      // The page will navigate; code after this typically won't run.
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithPopup(auth, provider);
     } catch (error) {
       showToast(error.message || error.code || 'Redirect sign-in failed');
       button.disabled = false;
@@ -51,30 +51,23 @@ export function init() {
 
   document.getElementById('role-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const submit = event.currentTarget.querySelector('button[type="submit"]');
-    const role = new FormData(event.currentTarget).get('role');
+    const formData = new FormData(event.currentTarget);
+    const role = formData.get('role');
+    const isDemo = formData.get('isDemo') === 'true';
     const user = auth.currentUser;
-
-    if (!user) {
-      showToast('Please sign in before choosing a role.');
-      return;
-    }
-
-    submit.disabled = true;
-    submit.textContent = 'Saving...';
-    try {
-      await createUserProfile({
-        name: user.displayName,
-        email: user.email,
-        role,
-        patientCode: role === 'patient' ? createPatientCode() : null,
-        onboardingComplete: role === 'doctor'
-      });
+    await createUserProfile({
+      name: user.displayName,
+      email: user.email,
+      role,
+      patientCode: role === 'patient' ? createPatientCode() : null,
+      onboardingComplete: role === 'doctor' || isDemo,
+      conditions: isDemo && role === 'patient' ? ['hypertension', 'diabetes', 'temperature', 'oxygen_level', 'body_weight'] : []
+    });
+    
+    if (isDemo && role === 'patient') {
+      window.location.hash = '#/seed';
+    } else {
       window.location.hash = role === 'doctor' ? '#/doctor-dashboard' : '#/onboarding';
-    } catch (error) {
-      showToast(error.message);
-      submit.disabled = false;
-      submit.textContent = 'Complete setup';
     }
   });
 }
