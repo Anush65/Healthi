@@ -120,6 +120,7 @@ export function init() {
     }
 
     submit.disabled = true;
+    submit.textContent = 'Saving...';
     loading.style.display = 'block';
     try {
       const parsed = await parseWellnessLog(text, activeStats);
@@ -131,6 +132,7 @@ export function init() {
     } catch (error) {
       showToast(error.message);
       submit.disabled = false;
+      submit.textContent = 'Understand and save';
       loading.style.display = 'none';
     }
   });

@@ -6,16 +6,20 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     function userData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return userDoc().exists ? userDoc().data : null;
     }
 
     function isDoctor() {
-      return signedIn() && userData().role == "doctor";
+      return signedIn() && userDoc().exists && userDoc().data.role == "doctor";
     }
 
     function isPatient() {
-      return signedIn() && userData().role == "patient";
+      return signedIn() && userDoc().exists && userDoc().data.role == "patient";
     }
 
     function isAssignedDoctor(patientId) {
@@ -49,9 +53,20 @@ service cloud.firestore {
       allow list: if false;
     }
 
+    match /patientUids/{patientId} {
+      allow create, update: if isPatient() &&
+        patientId == request.auth.uid &&
+        request.resource.data.patientId == request.auth.uid;
+      allow delete: if isPatient() &&
+        patientId == request.auth.uid;
+      allow get: if isDoctor();
+      allow list: if false;
+    }
+
     match /doctorAssignments/{assignmentId} {
       allow create: if (isDoctor() &&
         request.resource.data.doctorId == request.auth.uid &&
+        request.resource.data.patientId is string &&
         assignmentId == request.auth.uid + "_" + request.resource.data.patientId &&
         request.resource.data.patientCode is string &&
         get(/databases/$(database)/documents/patientCodes/$(request.resource.data.patientCode)).data.patientId
@@ -116,6 +131,23 @@ service cloud.firestore {
         (isDoctor() && isAssignedDoctor(resource.data.patientId)) ||
         resource.data.patientId == request.auth.uid
       );
+    }
+
+    match /aiInsights/{insightId} {
+      allow create: if isPatient() &&
+        request.resource.data.patientId == request.auth.uid;
+      allow read: if canReadPatientData(resource.data.patientId);
+      allow update, delete: if isPatient() &&
+        resource.data.patientId == request.auth.uid;
+    }
+
+    match /doctorRecommendations/{recommendationId} {
+      allow create: if isDoctor() &&
+        isAssignedDoctor(request.resource.data.patientId) &&
+        request.resource.data.doctorId == request.auth.uid &&
+        request.resource.data.text is string;
+      allow read: if canReadPatientData(resource.data.patientId);
+      allow update, delete: if false;
     }
   }
 }

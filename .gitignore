@@ -28,3 +28,5 @@ GEMINI.md
 PROJECT.md
 SAMPLE_GEMINI.md
 .env
+.env.example
+firestore.rules

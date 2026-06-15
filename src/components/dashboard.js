@@ -155,12 +155,12 @@ export async function render() {
           <div>
             <div class="section-heading"><div><p class="eyebrow">Health ledger</p><h2>Your recent story</h2></div><a href="#/export">View report</a></div>
             <div class="timeline">
-              ${recentLogs.map((log) => `
+          ${recentLogs.map((log) => `
                 <article class="timeline-item">
                   <div class="timeline-date"><strong>${new Date(log.date).getDate()}</strong><span>${new Date(log.date).toLocaleDateString(undefined, { month: 'short' })}</span></div>
                   <div class="timeline-body">
-                    <div class="timeline-meta"><span class="severity ${log.parsed_data.severity}">${log.parsed_data.severity}</span><time>${new Date(log.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></div>
-                    <h3>${log.parsed_data.summary}</h3>
+                    <div class="timeline-meta"><span class="severity ${log.parsed_data?.severity || 'medium'}">${log.parsed_data?.severity || 'medium'}</span><time>${new Date(log.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></div>
+                    <h3>${log.parsed_data?.summary || log.raw_text.substring(0, 100)}</h3>
                     <p>${log.raw_text}</p>
                     <div class="tag-row">${
                       (function() {
@@ -214,12 +214,25 @@ export function init() {
   });
 
   document.getElementById('reschedule-btn')?.addEventListener('click', async (event) => {
-    const date = new Date();
-    date.setDate(date.getDate() + 7);
-    date.setHours(10, 0, 0, 0);
-    await updateAppointment(event.currentTarget.dataset.id, { scheduledDate: date.toISOString(), status: 'scheduled' });
-    showToast('Appointment moved to next week.');
-    window.dispatchEvent(new Event('hashchange'));
+    const button = event.currentTarget;
+    if (!button) {
+      console.error('Reschedule button not found');
+      return;
+    }
+    button.disabled = true;
+    button.textContent = 'Rescheduling...';
+    try {
+      const date = new Date();
+      date.setDate(date.getDate() + 7);
+      date.setHours(10, 0, 0, 0);
+      await updateAppointment(button.dataset.id, { scheduledDate: date.toISOString(), status: 'scheduled' });
+      showToast('Appointment moved to next week.');
+      window.dispatchEvent(new Event('hashchange'));
+    } catch (error) {
+      showToast(error.message);
+      button.disabled = false;
+      button.textContent = 'Reschedule';
+    }
   });
 
   document.querySelectorAll('.metric-card').forEach(card => {
