@@ -1,67 +1,43 @@
-import { addMetricLog, getAppointments, getLogs, getMetricLogs, getProfile, getVisits, updateAppointment } from '../services/storage.js';
-import { getConditionConfig } from '../config/conditions.js';
+import { addMetricLog, getAppointments, getLogs, getMetricLogs, getProfile, getVisits, updateAppointment, getMedicationLogs, toggleMedicationLog } from '../services/storage.js';
+import { getConditionConfig, DefaultMetrics, ConditionRegistry } from '../config/conditions.js';
 import { showToast } from '../utils/toast.js';
+import { renderLayout, icon } from '../utils/layout.js';
 
-const icon = (name) => {
-  const icons = {
-    home: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M9.5 20v-6h5v6"/>',
-    plus: '<path d="M12 5v14M5 12h14"/>',
-    spark: '<path d="m12 3 1.7 4.3L18 9l-4.3 1.7L12 15l-1.7-4.3L6 9l4.3-1.7L12 3Z"/><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/>',
-    file: '<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/>',
-    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1-2.9 2.9-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5v.1h-4v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1-2.9-2.9.1-.1a1.7 1.7 0 0 0 .3-1.8A1.7 1.7 0 0 0 3.1 14H3v-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1 2.9-2.9.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.5V3h4v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1 2.9 2.9-.1.1a1.7 1.7 0 0 0-.3 1.8 1.7 1.7 0 0 0 1.5 1h.1v4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>'
-  };
-  return `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name]}</svg>`;
-};
 
-function nav() {
-  return `<nav class="app-nav" aria-label="Primary navigation">
-    <a class="nav-link active" href="#/dashboard">${icon('home')}<span>Home</span></a>
-    <a class="nav-link" href="#/log">${icon('plus')}<span>Log</span></a>
-    <a class="nav-link" href="#/insights">${icon('spark')}<span>Insights</span></a>
-    <a class="nav-link" href="#/export">${icon('file')}<span>Report</span></a>
-  </nav>`;
-}
 
-function renderReadingForms(profile) {
-  const conditions = (profile?.conditions || [])
-    .map((condition) => getConditionConfig(condition))
-    .filter(Boolean);
 
-  if (!conditions.length) {
-    return '<p class="muted">Add diabetes or hypertension in onboarding/settings to log structured readings.</p>';
-  }
-
-  return conditions.map((condition) => `
-    <form class="reading-form form-grid" data-condition="${condition.id}" style="margin-top:14px">
-      <div class="field full"><strong>${condition.name} reading</strong><p class="muted">${condition.description}</p></div>
-      ${condition.metrics.map((metric) => `
-        <div class="field">
-          <label for="${condition.id}-${metric.id}">${metric.label}</label>
-          <input id="${condition.id}-${metric.id}" name="${metric.id}" type="${metric.type}" min="0" placeholder="${metric.placeholder}" required>
-        </div>
-      `).join('')}
-      <div class="field"><button class="btn btn-primary" type="submit">Save reading</button></div>
-    </form>
-  `).join('');
-}
-
-function renderDoctorCare(visits, appointments) {
+function renderDoctorCare(visits, appointments, doctorName, doctorInitials, medicines, todayMedLogs) {
   const sortedVisits = [...visits].sort((a, b) => new Date(b.date) - new Date(a.date));
   const sortedAppointments = [...appointments].sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
 
   return `
     <section class="section-block">
       <div class="section-heading"><div><p class="eyebrow">Shared by your doctor</p><h2>Care updates</h2></div></div>
-      <div class="care-grid">
+
+      ${medicines?.length ? `
+      <div class="card" style="padding: 12px 24px; margin-bottom: 24px;">
+        <h3 style="margin-bottom: 8px;">Daily Medicine Checklist</h3>
+        ${medicines.map((med, idx) => {
+          const isChecked = todayMedLogs.some(l => l.medicineName === med.name) ? 'checked' : '';
+          return `
+            <div style="display: flex; align-items: center; gap: 16px; padding: 14px 0; ${idx < medicines.length - 1 ? 'border-bottom: 1px solid var(--line);' : ''}">
+              <input type="checkbox" class="med-checkbox" data-med="${med.name}" id="med-${med.id}" ${isChecked} style="width: 28px; height: 28px; padding: 0; margin: 0; cursor: pointer; accent-color: var(--green);">
+              <label for="med-${med.id}" style="cursor: pointer; flex: 1; margin: 0;">
+                <strong style="font-size: 1.15rem; display: block;">${med.name}</strong>
+                <span class="muted" style="font-size: 0.9rem;">${med.instructions || 'Daily tracking'} ${med.timing ? '· ' + med.timing : ''}</span>
+              </label>
+            </div>
+          `;
+        }).join('')}
+      </div>` : ''}
+
+      <div class="clinical-grid">
         <article class="doctor-note card">
-          <p class="eyebrow">Latest recommendation</p>
+          <p class="eyebrow">From your doctor</p>
           ${sortedVisits[0] ? `
             <h3>${sortedVisits[0].recommendations || sortedVisits[0].diagnosis || 'Follow-up review'}</h3>
             <p>${sortedVisits[0].doctorNotes || sortedVisits[0].diagnosis || ''}</p>
-            <div class="tag-row">
-              ${(sortedVisits[0].prescriptions || []).map((item) => `<span>${item.medicine} ${item.dosage || ''}</span>`).join('')}
-              ${(sortedVisits[0].testsOrdered || []).map((item) => `<span>Test: ${item.name}</span>`).join('')}
-            </div>
+            <div class="doctor-signoff"><span>${doctorInitials}</span><div><strong>${doctorName}</strong><small>Healthcare Provider</small></div></div>
           ` : '<p class="muted">No doctor recommendations yet.</p>'}
         </article>
         <article class="doctor-note card">
@@ -78,9 +54,19 @@ function renderDoctorCare(visits, appointments) {
 }
 
 export async function render() {
-  const [profile, logs, metrics, appointments, visits] = await Promise.all([
-    getProfile(), getLogs(), getMetricLogs(), getAppointments(), getVisits()
+  const todayDateStr = new Date().toISOString().split('T')[0];
+  const [profile, logs, metrics, appointments, visits, todayMedLogs] = await Promise.all([
+    getProfile(), getLogs(), getMetricLogs(), getAppointments(), getVisits(), getMedicationLogs(null, todayDateStr)
   ]);
+
+  const activeConditions = [];
+  Object.values(DefaultMetrics).forEach(c => activeConditions.push(c));
+  (profile?.conditions || []).forEach(condId => {
+    if (ConditionRegistry[condId]) {
+      activeConditions.push(ConditionRegistry[condId]);
+    }
+  });
+
   const nextAppointment = appointments
     .filter((item) => ['scheduled', 'rescheduled'].includes(item.status))
     .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))[0];
@@ -88,33 +74,37 @@ export async function render() {
   const recentLogs = logs.sort((a, b) => new Date(b.date) - new Date(a.date));
   const latestBp = metrics.filter((item) => item.condition === 'hypertension').at(-1);
   const latestSugar = metrics.filter((item) => item.condition === 'diabetes').at(-1);
+  const latestTemp = metrics.filter((item) => item.condition === 'temperature').at(-1);
+  const latestOxygen = metrics.filter((item) => item.condition === 'oxygen_level').at(-1);
+  const latestWeight = metrics.filter((item) => item.condition === 'body_weight').at(-1);
   const firstName = profile?.name?.split(' ')[0] || 'there';
+  const doctorName = appointments.find(a => a.doctorName)?.doctorName || 'Your doctor';
+  const doctorInitials = doctorName.split(' ').filter(w => w !== 'Dr.').map(word => word[0]).join('').slice(0, 2).toUpperCase() || 'MD';
 
-  return `
-    <div class="app-layout">
-      <aside class="sidebar">
-        <a class="brand" href="#/dashboard"><span class="brand-mark">H</span><span>Healthi</span></a>
-        ${nav()}
-        <div class="sidebar-help"><span>?</span><div><strong>Need help?</strong><small>Call a trusted contact</small></div></div>
-      </aside>
-      <main class="main-content">
+  const cacheRaw = typeof localStorage !== 'undefined' ? localStorage.getItem('healthi_cached_insights') : null;
+  const cache = cacheRaw ? JSON.parse(cacheRaw) : null;
+  const summaryTitle = cache?.data?.summaryInsight?.title || 'Analyze your health';
+  const summaryDesc = cache?.data?.summaryInsight?.description || 'Visit the Insights page to generate a personalized analysis of your recent health data.';
+
+  return renderLayout(`
         <header class="topbar">
           <div>
             <p class="eyebrow">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
             <h1>Good ${new Date().getHours() < 12 ? 'morning' : 'afternoon'}, ${firstName}.</h1>
             <p class="muted">Here is your health at a glance.</p>
           </div>
-          <a class="icon-button" href="#/settings" aria-label="Open settings">${icon('settings')}</a>
+          <div style="background: var(--slate-200); padding: 8px 16px; border-radius: 8px; font-weight: 600; letter-spacing: 1px; color: var(--slate-900);">
+            Code: ${profile?.patientCode || 'N/A'}
+          </div>
         </header>
 
         <section class="hero-grid">
-          <article class="wellness-card">
-            <div>
-              <span class="status-pill"><i></i> Looking steady</span>
-              <h2>Your readings are moving in the right direction.</h2>
-              <p>Keep up your medication routine and regular morning walks.</p>
-            </div>
-            <div class="wellness-score"><strong>82</strong><span>wellness<br>score</span></div>
+          <article class="insight-card">
+            <div class="insight-icon">${icon('spark')}</div>
+            <p class="eyebrow light">Healthi insight</p>
+            <h2>${summaryTitle}</h2>
+            <p>${summaryDesc}</p>
+            <a href="#/insights">See all insights →</a>
           </article>
           <a class="quick-log-card" href="#/log">
             <span class="quick-log-icon">${icon('plus')}</span>
@@ -123,20 +113,32 @@ export async function render() {
           </a>
         </section>
 
-        <section class="section-block">
-          <div class="section-heading"><div><p class="eyebrow">Today</p><h2>Your care plan</h2></div></div>
-          <div class="care-grid">
-            <article class="metric-card">
-              <div class="metric-label"><span class="metric-dot coral"></span>Blood pressure</div>
-              <strong>${latestBp ? `${latestBp.metrics.systolic}/${latestBp.metrics.diastolic}` : '--/--'}</strong>
-              <span>mmHg</span><small class="trend positive">↓ Improving</small>
-            </article>
-            <article class="metric-card">
-              <div class="metric-label"><span class="metric-dot gold"></span>Blood sugar</div>
-              <strong>${latestSugar?.metrics.blood_sugar || '--'}</strong>
-              <span>mg/dL</span><small class="trend">In your usual range</small>
-            </article>
-            <article class="appointment-card">
+
+    <section class="section-block">
+      <div class="section-heading"><div><p class="eyebrow">Today</p><h2>Your care plan</h2></div></div>
+      <div class="care-grid">
+        ${activeConditions.map(cond => {
+          const latestMetric = metrics.filter(m => m.condition === cond.id).at(-1);
+          return cond.metrics.map(mDef => {
+            let valueStr = '--';
+            if (latestMetric && latestMetric.metrics && latestMetric.metrics[mDef.id] !== undefined) {
+              valueStr = latestMetric.metrics[mDef.id];
+            }
+            const unit = mDef.label.includes('(') ? mDef.label.split('(')[1].replace(')', '') : '';
+            const title = mDef.label.split('(')[0].trim();
+            const loggableIndicator = mDef.patientLoggable ? '<small class="trend positive">+ Log Value</small>' : '<small class="trend">Lab Only</small>';
+            
+            // Note: We'll make these clickable in a future step.
+            return `
+            <article class="metric-card" style="cursor: pointer;" data-cond="${cond.id}" data-metric="${mDef.id}" data-loggable="${mDef.patientLoggable}">
+              <div class="metric-label"><span class="metric-dot" style="background-color: ${mDef.chartConfig.color}"></span>${title}</div>
+              <strong>${valueStr}</strong>
+              <span>${unit}</span>${loggableIndicator}
+            </article>`;
+          }).join('');
+        }).join('')}
+        
+        <article class="appointment-card">
               ${nextAppointment ? `
                 <div class="appointment-date"><strong>${new Date(nextAppointment.scheduledDate).getDate()}</strong><span>${new Date(nextAppointment.scheduledDate).toLocaleDateString(undefined, { month: 'short' })}</span></div>
                 <div><p class="eyebrow">Next appointment</p><h3>${nextAppointment.doctorName}</h3><p>${new Date(nextAppointment.scheduledDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · ${nextAppointment.reason}</p></div>
@@ -144,13 +146,10 @@ export async function render() {
               ` : '<p class="muted">No upcoming appointments.</p>'}
             </article>
           </div>
-          <div class="action-form">
-            <div class="section-heading"><div><p class="eyebrow">Readings</p><h2>Add a reading</h2></div></div>
-            ${renderReadingForms(profile)}
-          </div>
+
         </section>
 
-        ${renderDoctorCare(visits, appointments)}
+        ${renderDoctorCare(visits, appointments, doctorName, doctorInitials, profile?.medicines, todayMedLogs)}
 
         <section class="content-grid">
           <div>
@@ -163,55 +162,53 @@ export async function render() {
                     <div class="timeline-meta"><span class="severity ${log.parsed_data?.severity || 'medium'}">${log.parsed_data?.severity || 'medium'}</span><time>${new Date(log.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></div>
                     <h3>${log.parsed_data?.summary || log.raw_text.substring(0, 100)}</h3>
                     <p>${log.raw_text}</p>
-                    <div class="tag-row">${(log.parsed_data?.symptoms || []).map((item) => `<span>${item}</span>`).join('')}${log.parsed_data?.sleep ? `<span>Sleep: ${log.parsed_data.sleep}</span>` : ''}</div>
+                    <div class="tag-row">${
+                      (function() {
+                        const sleepStr = log.parsed_data.sleep || '';
+                        const hasBadSleep = sleepStr && !sleepStr.match(/good|excellent|normal|well|not mentioned/i);
+                        const sym = Array.isArray(log.parsed_data.symptoms) ? [...log.parsed_data.symptoms] : [];
+                        if (hasBadSleep) sym.push(`Sleep: ${sleepStr}`);
+                        return sym.map(item => `<span>${item}</span>`).join('');
+                      })()
+                    }</div>
                   </div>
                 </article>`).join('')}
             </div>
           </div>
-          <aside>
-            <article class="insight-card">
-              <div class="insight-icon">${icon('spark')}</div>
-              <p class="eyebrow light">Healthi insight</p>
-              <h2>Poor sleep may be linked to your headaches.</h2>
-              <p>You mentioned a headache on two days after sleeping less than six hours. Try winding down 30 minutes earlier tonight.</p>
-              <a href="#/insights">See all insights →</a>
-            </article>
-            <article class="doctor-note card">
-              <p class="eyebrow">From your doctor</p>
-              <h3>${latestVisit?.recommendations || 'No new recommendations.'}</h3>
-              <p>${latestVisit?.doctorNotes || ''}</p>
-              <div class="doctor-signoff"><span>DR</span><div><strong>${latestVisit?.doctorName || 'Your doctor'}</strong><small>Healthcare professional</small></div></div>
-            </article>
-          </aside>
+
         </section>
-      </main>
-      ${nav()}
-    </div>`;
+
+        <!-- Metric Upload Modal -->
+        <dialog id="metric-modal" class="card" style="padding: 24px; border: none; border-radius: var(--radius-card); box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 400px; width: 90%; margin: auto;">
+          <form id="metric-form">
+            <h3 id="metric-modal-title" style="margin-bottom: 8px;">Log Value</h3>
+            <p id="metric-modal-desc" class="muted" style="margin-bottom: 16px;">Enter your latest reading.</p>
+            <div class="field" style="margin-bottom: 16px;">
+              <input type="number" id="metric-modal-input" required step="any" style="width: 100%; font-size: 1.2rem; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+            </div>
+            <input type="hidden" id="metric-modal-cond">
+            <input type="hidden" id="metric-modal-metric">
+            <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('metric-modal').close()" style="flex: 1;">Cancel</button>
+              <button type="submit" class="btn btn-primary" style="flex: 1;">Save</button>
+            </div>
+          </form>
+        </dialog>
+    `, 'home');
 }
 
 export function init() {
-  document.querySelectorAll('.reading-form').forEach((form) => {
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const button = form.querySelector('button[type="submit"]');
-      if (!button) {
-        console.error('Submit button not found in form');
-        showToast('Form error: submit button not found');
-        return;
-      }
-      button.disabled = true;
-      button.textContent = 'Saving...';
+
+  document.querySelectorAll('.med-checkbox').forEach(cb => {
+    cb.addEventListener('change', async (e) => {
+      const isChecked = e.target.checked;
+      const medName = e.target.dataset.med;
+      const todayDateStr = new Date().toISOString().split('T')[0];
       try {
-        const metrics = Object.fromEntries(
-          Array.from(new FormData(form).entries()).map(([key, value]) => [key, Number(value)])
-        );
-        await addMetricLog({ condition: form.dataset.condition, metrics });
-        showToast('Reading saved.');
-        window.dispatchEvent(new Event('hashchange'));
-      } catch (error) {
-        showToast(error.message);
-        button.disabled = false;
-        button.textContent = 'Save reading';
+        await toggleMedicationLog(null, medName, todayDateStr, isChecked);
+      } catch (err) {
+        e.target.checked = !isChecked; // revert
+        showToast('Failed to update medicine checklist.');
       }
     });
   });
@@ -235,6 +232,38 @@ export function init() {
       showToast(error.message);
       button.disabled = false;
       button.textContent = 'Reschedule';
+    }
+  });
+
+  document.querySelectorAll('.metric-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const isLoggable = card.dataset.loggable === 'true';
+      if (!isLoggable) {
+        showToast('This is a lab test result. Only your doctor can log this metric.');
+        return;
+      }
+      const title = card.querySelector('.metric-label').innerText;
+      document.getElementById('metric-modal-title').innerText = `Log ${title}`;
+      document.getElementById('metric-modal-cond').value = card.dataset.cond;
+      document.getElementById('metric-modal-metric').value = card.dataset.metric;
+      document.getElementById('metric-modal-input').value = '';
+      document.getElementById('metric-modal').showModal();
+    });
+  });
+
+  document.getElementById('metric-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const cond = document.getElementById('metric-modal-cond').value;
+    const metric = document.getElementById('metric-modal-metric').value;
+    const val = Number(document.getElementById('metric-modal-input').value);
+    
+    try {
+      await import('../services/storage.js').then(m => m.addMetricLog({ condition: cond, metrics: { [metric]: val } }));
+      showToast('Reading saved successfully.');
+      document.getElementById('metric-modal').close();
+      window.dispatchEvent(new Event('hashchange'));
+    } catch (err) {
+      showToast('Failed to save reading.');
     }
   });
 }

@@ -1,6 +1,6 @@
 import { clearAllData, getProfile, setProfile } from '../services/storage.js';
 import { ConditionRegistry, getConditionConfig } from '../config/conditions.js';
-import { showToast } from '../utils/toast.js';
+import { renderLayout } from '../utils/layout.js';
 
 export async function render() {
   const profile = await getProfile();
@@ -27,7 +27,7 @@ export async function render() {
     </div>
   ` : '';
 
-  return `
+  return renderLayout(`
     <div style="margin-top: 20px;">
       <h1>Settings</h1>
       <p style="color: var(--text-secondary); margin-bottom: 24px;">Manage your preferences and data.</p>
@@ -42,14 +42,14 @@ export async function render() {
           </div>
           <label for="other-setting" style="display: block; font-weight: 500; margin-bottom: 8px;">Other Conditions</label>
           <input type="text" id="other-setting" value="${otherConds.join(', ')}" placeholder="e.g., Asthma" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-button); font-size: 1rem; margin-bottom: 16px;">
-          <button type="submit" class="btn-primary" style="width: 100%;">Save Conditions</button>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Save Conditions</button>
         </form>
       </div>
 
       <div class="card" style="margin-bottom: 16px;">
         <h3 style="margin-bottom: 12px;">Account Access</h3>
         <p style="color: var(--text-secondary); margin-bottom: 16px;">Sign out of your account on this device.</p>
-        <button id="logout-btn" class="btn-primary" style="background-color: var(--slate-700); width: 100%;">
+        <button id="logout-btn" class="btn btn-primary" style="background-color: var(--muted); width: 100%;">
           Log Out
         </button>
       </div>
@@ -57,16 +57,12 @@ export async function render() {
       <div class="card">
         <h3 style="margin-bottom: 12px; color: var(--amber-700);">Danger Zone</h3>
         <p style="color: var(--text-secondary); margin-bottom: 16px;">This will permanently delete your profile, health logs, and account. This cannot be undone.</p>
-        <button id="delete-btn" class="btn-primary" style="background-color: var(--amber-700); width: 100%;">
+        <button id="delete-btn" class="btn btn-primary" style="background-color: var(--danger); width: 100%;">
           Delete Account & Data
         </button>
       </div>
-      
-      <a href="#/dashboard" style="display: block; text-align: center; margin-top: 24px; color: var(--blue-600); text-decoration: none; font-weight: 600;">
-        &larr; Back to Dashboard
-      </a>
     </div>
-  `;
+  `, 'settings');
 }
 
 export function init() {

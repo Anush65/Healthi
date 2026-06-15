@@ -45,23 +45,49 @@ async function generateWithFallback(prompt) {
  * @param {string} text - User's raw input.
  * @returns {Promise<Object>} - The parsed JSON data.
  */
-export async function parseWellnessLog(text) {
+export async function parseWellnessLog(text, quickStats = {}) {
+  const hasText = text && text.trim().length > 0;
+  const hasStats = Object.keys(quickStats).length > 0;
+  
   if (!apiKey) {
-    return parseWellnessLogLocally(text);
+    const lower = (text || '').toLowerCase();
+    const knownSymptoms = ['headache', 'fever', 'dizziness', 'nausea', 'cough', 'fatigue', 'pain', 'ache'];
+    const symptoms = knownSymptoms.filter((symptom) => lower.includes(symptom));
+    const sleepMatch = lower.match(/(\d+)\s*(hours?|hrs?)/);
+    const severity = /(severe|very bad|intense|unbearable)/.test(lower)
+      ? 'high'
+      : /(mild|little|brief|slight)/.test(lower) ? 'low' : symptoms.length ? 'medium' : 'low';
+    
+    let summary = text && text.length > 86 ? `${text.slice(0, 83)}...` : text || 'Quick Stats Update';
+    
+    return {
+      symptoms,
+      sleep: quickStats['Sleep Quality'] || (sleepMatch ? `${sleepMatch[1]} hours mentioned` : lower.includes('sleep') ? 'Sleep mentioned' : 'Not mentioned'),
+      hydration: quickStats['Hydration'] || (lower.includes('water') || lower.includes('hydration') ? 'Mentioned' : 'Not mentioned'),
+      diet_notes: quickStats['Appetite'] ? `Appetite: ${quickStats['Appetite']}` : lower.includes('breakfast') ? 'Breakfast mentioned' : 'Not mentioned',
+      severity,
+      summary,
+      quickStats
+    };
   }
+
+  const quickStatsStr = hasStats ? JSON.stringify(quickStats) : "None provided";
+  const userTextStr = hasText ? `"${text}"` : "No text provided.";
 
   const prompt = `
     You are a medical parser for a wellness app. 
-    Analyze the following user input and return a JSON object with strictly these keys:
+    Analyze the following user input AND their selected quick stats.
+    Return a JSON object with strictly these keys:
     - "symptoms": an array of strings (e.g., ["joint pain", "headache"]). Empty array if none.
-    - "sleep": string description of sleep quality (e.g., "poor", "good", "none mentioned").
+    - "sleep": string description of sleep quality (e.g., "poor", "good", "none mentioned"). Incorporate the quick stats if relevant.
     - "diet_notes": string description of diet/food mentioned.
     - "severity": string ("low", "medium", "high") based on the language used.
-    - "summary": A short 1-sentence summary of the entry.
+    - "summary": A short 1-sentence summary of the entry combining the context of their text and quick stats.
 
     IMPORTANT: Return ONLY valid JSON, without markdown formatting or code blocks.
     
-    User Input: "${text}"
+    User Input: ${userTextStr}
+    Quick Stats: ${quickStatsStr}
   `;
 
   try {
@@ -109,32 +135,46 @@ export async function parseWellnessLog(text) {
 }
 
 /**
- * Generates predictive insights based on historical logs.
- * @param {Array} historyData - Array of parsed log objects.
- * @returns {Promise<string>} - A 2-sentence pattern recognition insight.
+ * Generates predictive insights based on historical logs, visits, and appointments.
+ * @param {Array} logs - Array of parsed log objects.
+ * @param {Array} visits - Array of doctor visits.
+ * @param {Array} appointments - Array of appointments.
+ * @returns {Promise<Array>} - An array of insight objects.
  */
-export async function getPredictiveInsights(historyData) {
-  if (!historyData || historyData.length === 0) {
-    return "Not enough data yet to provide insights. Keep logging your daily wellness!";
+export async function getPredictiveInsights(logs, visits = [], appointments = []) {
+  if (!logs || logs.length === 0) {
+    return [{ title: "Need More Data", description: "Not enough data yet to provide insights. Keep logging your daily wellness!", type: "neutral" }];
   }
 
   if (!apiKey) {
-    return getLocalPredictiveInsight(historyData);
+    return [{ title: "Simulated Insight", description: "We noticed you log data often. API key is missing to provide real insights.", type: "neutral" }];
   }
 
   const prompt = `
     You are a helpful, reassuring predictive analyst for a daily wellness app designed for the elderly.
-    Analyze the following 14-day log history and provide a plain-english insight.
-    Identify any simple correlations between their symptoms, sleep, and diet.
-    Do NOT offer strict medical advice or diagnoses. Keep it to exactly two friendly, reassuring sentences.
+    Analyze the following recent data, which includes the patient's daily health logs, doctor's visits/care plans, and upcoming appointments.
     
-    Log History (JSON):
-    ${JSON.stringify(historyData)}
+    Generate exactly 2 to 5 distinct insights based on patterns you observe. 
+    Identify simple correlations between symptoms, sleep, diet, and doctor recommendations.
+    Do NOT offer strict medical advice or diagnoses. Keep descriptions to 1-2 friendly, reassuring sentences.
+
+    Return the result strictly as a JSON object with two keys:
+    - "summaryInsight": An object representing the most important high-level insight for the dashboard (must have "title", "description", and "type").
+    - "insights": A JSON array of 2 to 5 distinct insight objects for the detailed insights page (each with "title", "description", and "type").
+
+    IMPORTANT: Return ONLY valid JSON, without markdown formatting or code blocks.
+    
+    Data Context:
+    Logs: ${JSON.stringify(logs)}
+    Doctor Visits: ${JSON.stringify(visits)}
+    Appointments: ${JSON.stringify(appointments)}
   `;
 
   try {
     const result = await generateWithFallback(prompt);
-    return result.response.text().trim();
+    const responseText = result.response.text();
+    const cleanText = responseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+    return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error generating insights with Gemini:", error);
     return getLocalPredictiveInsight(historyData);
